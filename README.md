@@ -25,44 +25,55 @@ A production-ready FastAPI backend system that helps university students study m
 ### Prerequisites
 
 - Python 3.11+
-- Poetry
-- Docker & Docker Compose (optional)
-- PostgreSQL (if not using Docker)
+- Poetry 2.0+
+- Docker & Docker Compose
+- Docker Desktop (for Windows)
 
 ### Installation
 
-1. Clone the repository
+1. **Clone the repository**
 
 ```bash
 git clone <your-repo-url>
 cd DATN
 ```
 
-2. Copy environment file
+2. **Install Poetry** (if not already installed)
+
+```powershell
+# For Windows (PowerShell)
+(Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | python -
+```
+
+3. **Copy environment file**
 
 ```bash
 cp .env.example .env
 ```
 
-3. Install dependencies
+Edit `.env` and update the configuration as needed.
+
+4. **Install dependencies**
 
 ```bash
 poetry install
 ```
 
-4. Start PostgreSQL (if using Docker)
+5. **Start PostgreSQL with Docker**
+
+Make sure Docker Desktop is running, then:
 
 ```bash
 docker-compose up db -d
 ```
 
-5. Run database migrations
+6. **Run database migrations**
 
 ```bash
 poetry run alembic upgrade head
 ```
 
-6. Start the application
+7. **Start the application**
 
 ```bash
 poetry run uvicorn app.main:app --reload
@@ -72,10 +83,30 @@ The API will be available at: http://localhost:8000
 
 API Documentation: http://localhost:8000/docs
 
-### Using Docker
+### Using Docker (Full Stack)
 
 ```bash
 docker-compose up --build
+```
+
+### Activating Poetry Environment
+
+To run commands without the `poetry run` prefix:
+
+```bash
+# Activate the environment (Poetry 2.0+)
+poetry env info --path
+# Copy the path and activate manually:
+# Windows PowerShell:
+& "C:\Users\ADMIN\AppData\Local\pypoetry\Cache\virtualenvs\datn-Qh1lQVe4-py3.11\Scripts\Activate.ps1"
+```
+
+Or simply use `poetry run` before every command:
+
+```bash
+poetry run uvicorn app.main:app --reload
+poetry run alembic upgrade head
+poetry run pytest
 ```
 
 ## Project Structure
@@ -103,11 +134,13 @@ DATN/
 │   ├── services/                 # Business logic
 │   ├── utils/                    # Utility functions
 │   └── main.py                   # FastAPI application
+├── alembic/                      # Database migrations
 ├── uploads/                      # Uploaded files directory
 ├── Dockerfile
 ├── docker-compose.yml
-├── pyproject.toml
-└── .env.example
+├── pyproject.toml               # Poetry dependencies
+├── poetry.lock                  # Locked dependencies
+└── .env.example                 # Environment variables template
 ```
 
 ## API Endpoints
@@ -149,6 +182,38 @@ DATN/
 
 ## Development
 
+### Common Commands
+
+```bash
+# Run the development server
+poetry run uvicorn app.main:app --reload
+
+# Run database migrations
+poetry run alembic upgrade head
+
+# Create a new migration
+poetry run alembic revision --autogenerate -m "description"
+
+# Run tests
+poetry run pytest
+
+# Format code
+poetry run black app/
+
+# Check types
+poetry run mypy app/
+```
+
+### Adding Dependencies
+
+```bash
+# Add a new package
+poetry add package-name
+
+# Add a dev dependency
+poetry add --group dev package-name
+```
+
 ### Code Style
 
 The project follows PEP8 standards. Format code using:
@@ -165,7 +230,30 @@ poetry run pytest
 
 ## Environment Variables
 
-See `.env.example` for all available configuration options.
+See `.env.example` for all available configuration options:
+
+- `DATABASE_URL` - PostgreSQL connection string
+- `SECRET_KEY` - JWT secret key
+- `ALGORITHM` - JWT algorithm (default: HS256)
+- `ACCESS_TOKEN_EXPIRE_MINUTES` - Token expiration time
+
+## Troubleshooting
+
+### Docker Desktop not running
+
+Make sure Docker Desktop is running before executing `docker-compose` commands.
+
+### Port already in use
+
+If port 8000 is already in use, change it in `docker-compose.yml` or when running uvicorn:
+
+```bash
+poetry run uvicorn app.main:app --reload --port 8001
+```
+
+### Database connection errors
+
+Ensure PostgreSQL is running and the `DATABASE_URL` in `.env` is correct.
 
 ## License
 
