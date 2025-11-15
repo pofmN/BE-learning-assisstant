@@ -1,0 +1,33 @@
+"""
+User model for authentication and authorization.
+"""
+from sqlalchemy import Boolean, Column, Integer, String, DateTime
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+
+from app.db.base import Base
+
+
+class User(Base):
+    """User model."""
+
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=False)
+    username = Column(String, unique=True, index=True, nullable=False)
+    full_name = Column(String, nullable=True)
+    hashed_password = Column(String, nullable=False)
+    role = Column(String, default="student")  # student, admin
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    documents = relationship("Document", back_populates="owner", cascade="all, delete-orphan")
+    test_results = relationship(
+        "TestResult", back_populates="user", cascade="all, delete-orphan"
+    )
+    learning_progress = relationship(
+        "LearningProgress", back_populates="user", cascade="all, delete-orphan"
+    )
