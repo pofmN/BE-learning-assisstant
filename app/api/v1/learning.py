@@ -38,7 +38,7 @@ def get_learning_progress(
         List of learning progress records
     """
     # Update progress from test results
-    _update_learning_progress(db, current_user.id)
+    _update_learning_progress(db, current_user.id) # type: ignore
 
     # Get progress records
     progress = (
@@ -67,7 +67,7 @@ def get_recommendations(
         List of recommended topics
     """
     # Update progress first
-    _update_learning_progress(db, current_user.id)
+    _update_learning_progress(db, current_user.id) # type: ignore
 
     progress = (
         db.query(LearningProgress)
@@ -78,7 +78,7 @@ def get_recommendations(
     recommendations = []
 
     # Recommend weak topics (accuracy < 60%)
-    weak_topics = [p for p in progress if p.accuracy < 60 and p.total_attempts >= 3]
+    weak_topics = [p for p in progress if p.accuracy < 60 and p.total_attempts >= 3] # type: ignore
     for topic_progress in weak_topics:
         recommendations.append(
             {
@@ -89,7 +89,7 @@ def get_recommendations(
         )
 
     # Recommend topics with few attempts
-    new_topics = [p for p in progress if p.total_attempts < 3]
+    new_topics = [p for p in progress if p.total_attempts < 3] # type: ignore
     for topic_progress in new_topics:
         recommendations.append(
             {
@@ -100,7 +100,7 @@ def get_recommendations(
         )
 
     # Recommend strong topics for review (accuracy > 80%)
-    strong_topics = [p for p in progress if p.accuracy > 80 and p.total_attempts >= 5]
+    strong_topics = [p for p in progress if p.accuracy > 80 and p.total_attempts >= 5] # type: ignore
     for topic_progress in strong_topics[:2]:  # Limit to 2
         recommendations.append(
             {
@@ -139,7 +139,7 @@ def get_weak_areas(
         List of weak areas with suggestions
     """
     # Update progress first
-    _update_learning_progress(db, current_user.id)
+    _update_learning_progress(db, current_user.id) # type: ignore
 
     progress = (
         db.query(LearningProgress)
@@ -153,7 +153,7 @@ def get_weak_areas(
 
     weak_areas = []
     for topic_progress in progress:
-        suggestions = _generate_suggestions(topic_progress.accuracy)
+        suggestions = _generate_suggestions(topic_progress.accuracy) # type: ignore
         weak_areas.append(
             {
                 "topic": topic_progress.topic,
@@ -205,9 +205,9 @@ def _update_learning_progress(db: Session, user_id: int) -> None:
         accuracy = (stats["correct"] / stats["total"]) * 100 if stats["total"] > 0 else 0
 
         if progress:
-            progress.total_attempts = stats["total"]
-            progress.correct_attempts = stats["correct"]
-            progress.accuracy = accuracy
+            progress.total_attempts = stats["total"] # type: ignore
+            progress.correct_attempts = stats["correct"] # type: ignore
+            progress.accuracy = accuracy # type: ignore
         else:
             progress = LearningProgress(
                 user_id=user_id,

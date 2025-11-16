@@ -45,13 +45,13 @@ async def generate_mcqs(
             detail="Document not found",
         )
 
-    if document.owner_id != current_user.id:
+    if document.owner_id != current_user.id: # type: ignore
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions",
         )
 
-    if not document.extracted_text:
+    if not document.extracted_text: # type: ignore
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Document has no extracted text",
@@ -60,7 +60,7 @@ async def generate_mcqs(
     # Generate MCQs using AI service
     try:
         generated_mcqs = await ai_service.generate_mcqs(
-            text=document.extracted_text,
+            text=document.extracted_text, # type: ignore
             num_questions=request.num_questions,
             difficulty=request.difficulty,
             topic=request.topic,
