@@ -2,8 +2,12 @@
 Configuration management using Pydantic settings.
 """
 from typing import List
+import os
 from pydantic import AnyHttpUrl, validator
 from pydantic_settings import BaseSettings
+from dotenv import load_dotenv
+load_dotenv()
+
 
 
 class Settings(BaseSettings):
@@ -15,14 +19,16 @@ class Settings(BaseSettings):
     DEBUG: bool = True
 
     # Database Configuration
-    POSTGRES_USER: str = "postgres"
-    POSTGRES_PASSWORD: str = "postgres"
-    POSTGRES_DB: str = "learning_assistant"
-    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/learning_assistant"
+    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "")
+    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "")
+    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "")
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "")
+    DB_HOST: str = os.getenv("DB_HOST", "")
+    DB_PORT: int = int(os.getenv("DB_PORT", 5432))
 
     # JWT Configuration
-    SECRET_KEY: str = "your-super-secret-key-change-this-in-production"
-    ALGORITHM: str = "HS256"
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "")
+    ALGORITHM: str = os.getenv("ALGORITHM", "")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
     # CORS Configuration
@@ -38,12 +44,8 @@ class Settings(BaseSettings):
         raise ValueError(v)
 
     # File Upload Configuration
-    UPLOAD_DIR: str = "./uploads"
-    MAX_UPLOAD_SIZE: int = 10485760  # 10MB
-
-    # AI Model Configuration
-    AI_MODEL_URL: str = "http://localhost:8001/generate"
-    AI_MODEL_TIMEOUT: int = 60
+    UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "./uploads")
+    MAX_UPLOAD_SIZE: int = int(os.getenv("MAX_UPLOAD_SIZE", 10485760))  # 10MB
 
     class Config:
         """Pydantic config."""

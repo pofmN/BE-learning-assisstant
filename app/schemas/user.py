@@ -11,8 +11,8 @@ class UserBase(BaseModel):
     """Base user schema."""
 
     email: EmailStr
-    username: str
-    full_name: Optional[str] = None
+    username: Optional[str] = None
+    full_name: str
 
 
 class UserCreate(UserBase):
@@ -62,3 +62,14 @@ class TokenPayload(BaseModel):
     """Schema for JWT token payload."""
 
     sub: Optional[int] = None
+
+class ForgotPasswordRequest(BaseModel):
+    """Schema for forgot password request."""
+
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    """Schema for reset password request."""
+
+    token: str
+    new_password: str

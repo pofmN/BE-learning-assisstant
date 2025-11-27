@@ -64,7 +64,7 @@ def submit_test(
     answer_results = []
 
     for answer in test_data.answers:
-        mcq = mcq_dict.get(answer.mcq_id)
+        mcq = mcq_dict.get(answer.mcq_id) # type: ignore
         if not mcq:
             continue
 
@@ -100,7 +100,7 @@ def submit_test(
 
     # Save individual answers
     for answer in test_data.answers:
-        mcq = mcq_dict.get(answer.mcq_id)
+        mcq = mcq_dict.get(answer.mcq_id) # type: ignore
         if mcq:
             test_answer = TestAnswer(
                 test_result_id=test_result.id,
@@ -183,7 +183,7 @@ def get_test_result(
             detail="Test result not found",
         )
 
-    if test_result.user_id != current_user.id:
+    if test_result.user_id != current_user.id: # type: ignore
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions",

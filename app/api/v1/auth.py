@@ -1,8 +1,9 @@
 """
 Authentication endpoints for user registration and login.
 """
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
+import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -11,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.dependencies import get_current_active_user, get_db
 from app.core.security import create_access_token, get_password_hash, verify_password
-from app.models.user import User
+from app.models.user import User, PasswordResetToken
 from app.schemas.user import Token, User as UserSchema, UserCreate
 
 router = APIRouter()
@@ -117,3 +118,44 @@ def read_current_user(current_user: User = Depends(get_current_active_user)) -> 
         Current user data
     """
     return current_user
+
+@router.get("/forgot-password")
+def forgot_password(email, db: Session = Depends(get_db)) -> Any:
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Email not found",
+        )
+    token = secrets.token_urlsafe(32)
+    exprires_at = datetime.now() + timedelta(hours=1)
+    # send email logic hereeee 
+    return {"message": "Password reset token generated"}
+
+@router.post("/reset-password")
+def reset_password(token: str, new_password: str, db: Session = Depends(get_db)) -> Any:
+    # verify token logic
+    token_record = db.query(PasswordResetToken).filter(
+        PasswordResetToken.token == token,
+        PasswordResetToken.expires_at > datetime.now()
+    ).first()
+    if not token_record:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired token",
+        )
+
+    user = db.query(User).filter(User.id == token_record.user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found for token",
+        )
+
+    # update password and invalidate the reset token
+    user.hashed_password = get_password_hash(new_password) # type: ignore
+    db.delete(token_record)
+    db.add(user)
+    db.commit()
+
+    return {"message": "Password has been reset"}
