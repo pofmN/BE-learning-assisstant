@@ -25,6 +25,19 @@ class Settings(BaseSettings):
     DATABASE_URL: str = os.getenv("DATABASE_URL", "")
     DB_HOST: str = os.getenv("DB_HOST", "")
     DB_PORT: int = int(os.getenv("DB_PORT", 5432))
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "")
+
+    # App mail Configuration
+    MAIL_USERNAME: str = os.getenv("MAIL_USERNAME", "")
+    MAIL_PASSWORD: str = os.getenv("MAIL_PASSWORD", "")
+    MAIL_FROM: str = os.getenv("MAIL_FROM", "")
+    MAIL_PORT: int = int(os.getenv("MAIL_PORT", 587))
+    MAIL_SERVER: str = os.getenv("MAIL_SERVER", "")
+    MAIL_FROM_NAME: str = os.getenv("MAIL_FROM_NAME", "Intelligent Learning Assistant")
+    MAIL_STARTTLS: bool = True
+    MAIL_SSL_TLS: bool = False
+    USE_CREDENTIALS: bool = True
+    VALIDATE_CERTS: bool = True
 
     # JWT Configuration
     SECRET_KEY: str = os.getenv("SECRET_KEY", "")

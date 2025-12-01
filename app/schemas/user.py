@@ -55,6 +55,7 @@ class Token(BaseModel):
     """Schema for JWT token."""
 
     access_token: str
+    expires_in: int
     token_type: str
 
 

@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+  <body>
+    <h2>Welcome to MyApp</h2>
+    <p>Hi {{ username }},</p>
+    <p>Click the link below to verify your account:</p>
+    <p><a href="{{ verify_url }}">{{ verify_url }}</a></p>
+    <p>This link will expire in {{ 60 }} minutes.</p>
+    <hr />
+    <p>If you didn't sign up, ignore this email.</p>
+  </body>
+</html>
