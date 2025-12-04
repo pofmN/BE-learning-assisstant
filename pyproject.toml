@@ -28,7 +28,6 @@ bcrypt = "4.0.1"
 pytz = "^2025.2"
 fastapi-mail = "^1.5.8"
 google-cloud-storage = "^3.6.0"
-python-magic-bin = "^0.4.14"
 pytest = "^9.0.1"
 
 [tool.poetry.group.dev.dependencies]
