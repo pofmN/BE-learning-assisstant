@@ -39,6 +39,12 @@ class Settings(BaseSettings):
     USE_CREDENTIALS: bool = True
     VALIDATE_CERTS: bool = True
 
+    # Google Cloud Storage Configuration
+    GCS_BUCKET_NAME: str = os.getenv("GCS_BUCKET_NAME", "")
+    GCS_PROJECT_ID: str = os.getenv("GCS_PROJECT_ID", "")
+    ALLOWED_FILE_EXTENSIONS: List[str] = [".pdf", ".docx", ".txt", ".pptx"]
+    MAX_UPLOAD_SIZE: int = int(os.getenv("MAX_UPLOAD_SIZE", 10485760))  # 10MB
+
     # JWT Configuration
     SECRET_KEY: str = os.getenv("SECRET_KEY", "")
     ALGORITHM: str = os.getenv("ALGORITHM", "")

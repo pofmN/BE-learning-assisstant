@@ -15,7 +15,8 @@ from app.core.dependencies import get_current_active_user, get_db
 from app.core.security import create_access_token, get_password_hash, verify_password, create_verification_token
 from app.models.user import User, PasswordResetToken
 from app.schemas.user import Token, User as UserSchema, UserCreate
-from app.services.mail import MailService
+from app.schemas.auth import ResetPassword
+from app.services.mail_service import MailService
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -303,8 +304,7 @@ def forgot_password(
 @router.post("/reset-password")
 def reset_password(
     request: Request,
-    token: str,
-    new_password: str,
+    reset_info: ResetPassword,
     db: Session = Depends(get_db)
 ) -> Any:
     """
@@ -325,7 +325,7 @@ def reset_password(
     client_ip = request.client.host if request.client else "unknown"
 
     # Validate password strength
-    if len(new_password) < 8:
+    if len(reset_info.new_password) < 8:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Password must be at least 8 characters long",
@@ -333,7 +333,7 @@ def reset_password(
 
     # Find and validate token
     token_record = db.query(PasswordResetToken).filter(
-        PasswordResetToken.token == token,
+        PasswordResetToken.token == reset_info.token,
         PasswordResetToken.expires_at > datetime.now()
     ).first()
 
