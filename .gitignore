@@ -25,6 +25,7 @@ wheels/
 *.egg
 
 test/
+service-account-bucket.json
 
 # Environment
 .env

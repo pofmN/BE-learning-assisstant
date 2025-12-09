@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     # Google Cloud Storage Configuration
     GCS_BUCKET_NAME: str = os.getenv("GCS_BUCKET_NAME", "")
     GCS_PROJECT_ID: str = os.getenv("GCS_PROJECT_ID", "")
+    GCS_CREDENTIALS_PATH: str = os.getenv("GCS_CREDENTIALS_PATH", "")
     ALLOWED_FILE_EXTENSIONS: List[str] = [".pdf", ".docx", ".txt", ".pptx"]
     MAX_UPLOAD_SIZE: int = int(os.getenv("MAX_UPLOAD_SIZE", 10485760))  # 10MB
 
@@ -49,6 +50,9 @@ class Settings(BaseSettings):
     SECRET_KEY: str = os.getenv("SECRET_KEY", "")
     ALGORITHM: str = os.getenv("ALGORITHM", "")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+
+    # LLMs Configuration
+    VOYAGE_API_KEY: str = os.getenv("VOYAGE_API_KEY", "")
 
     # CORS Configuration
     BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = []

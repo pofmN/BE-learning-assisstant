@@ -21,9 +21,10 @@ class Document(Base):
     file_size = Column(Integer, nullable=False)
     extracted_text = Column(Text, nullable=True)
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    status = Column(String, default="uploaded")  # uploaded, processing, processed, failed
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
     owner = relationship("User", back_populates="documents")
-    mcqs = relationship("MCQ", back_populates="document", cascade="all, delete-orphan")
+    chunks = relationship("DocumentChunk", back_populates="document", cascade="all, delete-orphan", passive_deletes=True)

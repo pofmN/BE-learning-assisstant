@@ -1,14 +1,7 @@
 """Schemas module - Import all schemas."""
 from app.schemas.user import User, UserCreate, UserUpdate, Token, TokenPayload
 from app.schemas.document import Document, DocumentCreate, DocumentUpdate, DocumentWithText
-from app.schemas.mcq import MCQ, MCQCreate, MCQUpdate, MCQGenerate, MCQGenerateResponse
-from app.schemas.test import (
-    TestSubmit,
-    TestAnswerSubmit,
-    TestResult,
-    TestResultDetailed,
-    TestAnswerResult,
-)
+
 from app.schemas.learning import (
     LearningProgress,
     LearningProgressCreate,
@@ -28,16 +21,6 @@ __all__ = [
     "DocumentCreate",
     "DocumentUpdate",
     "DocumentWithText",
-    "MCQ",
-    "MCQCreate",
-    "MCQUpdate",
-    "MCQGenerate",
-    "MCQGenerateResponse",
-    "TestSubmit",
-    "TestAnswerSubmit",
-    "TestResult",
-    "TestResultDetailed",
-    "TestAnswerResult",
     "LearningProgress",
     "LearningProgressCreate",
     "LearningProgressUpdate",

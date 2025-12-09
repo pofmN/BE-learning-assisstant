@@ -11,6 +11,17 @@ from app.api.v1 import api_router
 from app.core.config import settings
 from app.db.base import engine
 from app.models import Base
+import logging
+
+# Configure logging BEFORE creating the app
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(levelname)s:\t%(name)s\t%(message)s',
+    handlers=[
+        logging.StreamHandler()  # Output to console
+    ]
+)
+logging.getLogger("uvicorn").setLevel(logging.INFO)
 
 # Create database tables
 Base.metadata.create_all(bind=engine)

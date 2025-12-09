@@ -25,9 +25,6 @@ class User(Base):
 
     # Relationships
     documents = relationship("Document", back_populates="owner", cascade="all, delete-orphan")
-    test_results = relationship(
-        "TestResult", back_populates="user", cascade="all, delete-orphan"
-    )
     learning_progress = relationship(
         "LearningProgress", back_populates="user", cascade="all, delete-orphan"
     )
