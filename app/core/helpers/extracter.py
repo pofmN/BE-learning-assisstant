@@ -5,7 +5,7 @@ Supports PDF, DOCX, PPTX, and TXT files.
 import io
 import logging
 from typing import Optional
-import magic
+import filetype
 from pypdf import PdfReader
 from docx import Document as DocxDocument
 from pptx import Presentation
@@ -15,6 +15,13 @@ logger = logging.getLogger(__name__)
 
 class DocumentExtractor:
     """Extract text content from various document formats."""
+    
+    SUPPORTED_EXTENSIONS = {
+        "pdf": "PDF",
+        "docx": "DOCX",
+        "pptx": "PPTX",
+        "txt": "TXT",
+    }
     
     SUPPORTED_MIME_TYPES = {
         "application/pdf": "PDF",
@@ -29,7 +36,7 @@ class DocumentExtractor:
         
         Args:
             file_bytes: Raw file content as bytes
-            filename: Optional filename for logging
+            filename: Optional filename for extension fallback
             
         Returns:
             Extracted text content
@@ -37,26 +44,57 @@ class DocumentExtractor:
         Raises:
             ValueError: If file type is unsupported
         """
-        mime_type = magic.from_buffer(file_bytes, mime=True)
+        # Try to detect file type using filetype
+        kind = filetype.guess(file_bytes)
         
-        if mime_type not in self.SUPPORTED_MIME_TYPES:
+        if kind is not None:
+            mime_type = kind.mime
+            extension = kind.extension
+        else:
+            # Fallback to filename extension if filetype detection fails
+            if filename and "." in filename:
+                extension = filename.rsplit(".", 1)[-1].lower()
+                if extension == "txt":
+                    mime_type = "text/plain"
+                else:
+                    mime_type = None
+            else:
+                mime_type = None
+                extension = None
+        
+        # Validate supported type
+        if mime_type and mime_type in self.SUPPORTED_MIME_TYPES:
+            file_type = self.SUPPORTED_MIME_TYPES[mime_type]
+        elif extension and extension in self.SUPPORTED_EXTENSIONS:
+            file_type = self.SUPPORTED_EXTENSIONS[extension]
+            # Map extension to mime type
+            if extension == "pdf":
+                mime_type = "application/pdf"
+            elif extension == "docx":
+                mime_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            elif extension == "pptx":
+                mime_type = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            elif extension == "txt":
+                mime_type = "text/plain"
+        else:
             raise ValueError(
-                f"Unsupported file type: {mime_type}. "
-                f"Supported types: {', '.join(self.SUPPORTED_MIME_TYPES.values())}"
+                f"Unsupported file type. "
+                f"Supported types: {', '.join(self.SUPPORTED_EXTENSIONS.values())}"
             )
         
-        logger.info(f"Extracting text from {self.SUPPORTED_MIME_TYPES[mime_type]} file")
+        logger.info(f"Extracting text from {file_type} file")
         
+        # Route to appropriate extractor
         if mime_type == "application/pdf":
             return self._extract_pdf(file_bytes)
-        elif "wordprocessingml" in mime_type:
+        elif mime_type and "wordprocessingml" in mime_type:
             return self._extract_docx(file_bytes)
-        elif "presentationml" in mime_type:
+        elif mime_type and "presentationml" in mime_type:
             return self._extract_pptx(file_bytes)
-        elif mime_type.startswith("text/"):
+        elif mime_type == "text/plain" or extension == "txt":
             return self._extract_text(file_bytes)
-        
-        raise ValueError(f"Unsupported MIME type: {mime_type}")
+
+        raise ValueError(f"Unsupported file type: {mime_type or extension}")
     
     def _extract_pdf(self, file_bytes: bytes) -> str:
         """Extract text from PDF."""
