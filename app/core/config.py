@@ -53,6 +53,14 @@ class Settings(BaseSettings):
 
     # LLMs Configuration
     VOYAGE_API_KEY: str = os.getenv("VOYAGE_API_KEY", "")
+    MEGALLM_API_KEY: str = os.getenv("MEGALLM_API_KEY", "")
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+
+    # LangSmith Tracing Configuration
+    LANGSMITH_TRACING: bool = os.getenv("LANGSMITH_TRACING", "false").lower() == "true"
+    LANGSMITH_ENDPOINT: str = os.getenv("LANGSMITH_ENDPOINT", "")
+    LANGSMITH_API_KEY: str = os.getenv("LANGSMITH_API_KEY", "")
+    LANGSMITH_PROJECT: str = os.getenv("LANGSMITH_PROJECT", "")
 
     # CORS Configuration
     BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = []

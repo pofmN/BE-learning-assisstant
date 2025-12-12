@@ -4,5 +4,6 @@ from app.models.user import User
 from app.models.document import Document
 from app.models.document_chunk import DocumentChunk
 from app.models.learning import LearningProgress
+from app.models.course import Course, CourseSection, Quiz, FlashCard, StudiesNote
 
-__all__ = ["Base", "User", "Document", "DocumentChunk", "LearningProgress"]
+__all__ = ["Base", "User", "Document", "DocumentChunk", "LearningProgress", "Course", "CourseSection", "Quiz", "FlashCard", "StudiesNote"]
