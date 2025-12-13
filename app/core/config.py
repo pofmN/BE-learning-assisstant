@@ -1,7 +1,7 @@
 """
 Configuration management using Pydantic settings.
 """
-from typing import List
+from typing import List, Union
 import os
 from pydantic import AnyHttpUrl, validator
 from pydantic_settings import BaseSettings
@@ -63,16 +63,15 @@ class Settings(BaseSettings):
     LANGSMITH_PROJECT: str = os.getenv("LANGSMITH_PROJECT", "")
 
     # CORS Configuration
-    BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = []
+    BACKEND_CORS_ORIGINS: Union[List[AnyHttpUrl], str] = "*"
 
     @validator("BACKEND_CORS_ORIGINS", pre=True)
-    def assemble_cors_origins(cls, v: str | List[str]) -> List[str] | str:
-        """Parse CORS origins."""
-        if isinstance(v, str) and not v.startswith("["):
+    def assemble_cors_origins(cls, v):
+        if v == "*" or v == ["*"]:
+            return "*"
+        if isinstance(v, str):
             return [i.strip() for i in v.split(",")]
-        elif isinstance(v, (list, str)):
-            return v
-        raise ValueError(v)
+        return v
 
     # File Upload Configuration
     UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "./uploads")
