@@ -1,6 +1,7 @@
-from typing import List
+from typing import List, Union
 from pydantic import AnyHttpUrl, field_validator
 from pydantic_settings import BaseSettings
+import json
 
 
 class Settings(BaseSettings):
@@ -54,13 +55,25 @@ class Settings(BaseSettings):
     LANGSMITH_PROJECT: str = ""
 
     # CORS
-    BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = []
+    BACKEND_CORS_ORIGINS: Union[List[str], str] = []
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
-    def parse_cors(cls, v):
+    @classmethod
+    def parse_cors(cls, v: Union[str, List[str]]) -> List[str]:
+        """Parse CORS origins from comma-separated string or list."""
         if isinstance(v, str):
+            v = v.strip()
+            if not v:
+                return []
+            # Handle JSON-style strings (for local .env compatibility)
+            if v.startswith("["):
+                try:
+                    return json.loads(v)
+                except json.JSONDecodeError:
+                    pass
+            # Handle comma-separated strings (for Cloud Run)
             return [i.strip() for i in v.split(",") if i.strip()]
-        return v
+        return v if isinstance(v, list) else []
 
     # Uploads
     UPLOAD_DIR: str = "./uploads"
