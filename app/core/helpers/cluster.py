@@ -148,7 +148,7 @@ class ChunkClusterer:
         """Classify document size category based on number of chunks."""
         if n_chunks <= self.config.small_doc_threshold:
             return DocumentSize.TINY
-        elif n_chunks <= 30:
+        elif n_chunks <= 50:  # Increased from 30 to skip UMAP for more documents
             return DocumentSize.SMALL
         elif n_chunks <= 200:
             return DocumentSize.MEDIUM
@@ -162,13 +162,55 @@ class ChunkClusterer:
         Handle very small documents (≤6 chunks).
         No clustering needed - all chunks belong to single cluster.
         """
-        logger.debug(f"Tiny document ({n_chunks} chunks) → single cluster")
+        logger.info(f"Tiny document ({n_chunks} chunks) → single cluster")
         return [0] * n_chunks, {
             "n_clusters": 1,
             "method": "tiny_document_fallback",
             "n_chunks": n_chunks,
             "doc_size": DocumentSize.TINY.value,
         }
+    
+    def _cluster_small_fast(self, embeddings_np: np.ndarray) -> Tuple[List[int], Dict[str, Any]]:
+        """
+        Fast clustering for small documents (7-50 chunks) using simple hierarchical clustering.
+        Avoids slow UMAP processing.
+        """
+        n = len(embeddings_np)
+        logger.info(f"Small document ({n} chunks) - using fast hierarchical clustering")
+        
+        # Estimate reasonable number of clusters for small documents
+        n_clusters = max(2, min(5, n // 5))
+        
+        try:
+            # Use simple hierarchical clustering directly on embeddings
+            clusterer = AgglomerativeClustering(
+                n_clusters=n_clusters,
+                metric='cosine',
+                linkage='average'
+            )
+            
+            labels = clusterer.fit_predict(embeddings_np)  # type: ignore
+            
+            metadata = {
+                "n_chunks": n,
+                "n_clusters": n_clusters,
+                "method": "hierarchical_fast_small",
+                "doc_size": DocumentSize.SMALL.value,
+                "cluster_distribution": dict(zip(*np.unique(labels, return_counts=True))),
+            }
+            
+            logger.info(f"Small doc clustered: {n} chunks → {n_clusters} clusters (fast method)")
+            return labels.tolist(), metadata
+            
+        except Exception as e:
+            logger.error(f"Small document clustering failed: {e}, using single cluster")
+            # Fallback: single cluster
+            return [0] * n, {
+                "n_chunks": n,
+                "n_clusters": 1,
+                "method": "single_cluster_fallback",
+                "doc_size": DocumentSize.SMALL.value,
+            }
 
     def _handle_very_large_document(
         self, 
@@ -206,7 +248,7 @@ class ChunkClusterer:
                 linkage='ward'
             )
             
-            labels = clusterer.fit_predict(reduced)
+            labels = clusterer.fit_predict(reduced) # type: ignore
             
             metadata = {
                 "n_chunks": n,
@@ -244,6 +286,10 @@ class ChunkClusterer:
         This is the main clustering pipeline for most documents.
         """
         n = len(embeddings_np)
+        
+        # For SMALL documents (7-50 chunks), use faster clustering without UMAP
+        if doc_size == DocumentSize.SMALL:
+            return self._cluster_small_fast(embeddings_np)
         
         # Adaptive parameters based on document size
         params = self._get_adaptive_parameters(n, doc_size)

@@ -93,8 +93,14 @@ class DocumentProcessor:
             embeddings = self.embedder.embed_chunks(chunks)
             
             # Step 3.5: Cluster chunks by embedding
-            logger.info(f"Clustering chunks for '{filename}'")
-            cluster_ids, _ = self.clusterer.cluster(embeddings)            
+            logger.info(f"Clustering chunks for '{filename}' ({len(chunks)} chunks)")
+            try:
+                cluster_ids, metadata = self.clusterer.cluster(embeddings)
+                logger.info(f"Clustering completed: {metadata.get('n_clusters', 0)} clusters using {metadata.get('method', 'unknown')}")
+            except Exception as e:
+                logger.error(f"Clustering failed: {e}, using fallback (single cluster)")
+                cluster_ids = [0] * len(chunks)  # Fallback: all chunks in one cluster
+            
             # Step 4: Store to database (pass cluster_ids)
             logger.info(f"Storing document '{filename}' to database")
 
