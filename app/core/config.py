@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     DB_HOST: str = ""
     DB_PORT: int = 5432
     FRONTEND_URL: str = ""
+    BACKEND_URL: str = ""
+    ENV: str = ""
 
     # Mail
     MAIL_USERNAME: str = ""

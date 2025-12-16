@@ -52,12 +52,12 @@ class Quiz(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     course_id = Column(Integer, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False)
+    section_id = Column(Integer, ForeignKey("course_sections.id", ondelete="SET NULL"), nullable=True)
     question = Column(Text, nullable=False)
     question_type = Column(String, default="multiple_choice")  # multiple_choice, true_false, short_answer
     question_data = Column(JSON, nullable=True)  # List of answer options for multiple choice
     explanation = Column(Text, nullable=True)
     difficulty = Column(String, nullable=True)  # easy, medium, hard
-    section_id = Column(Integer, ForeignKey("course_sections.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships

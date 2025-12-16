@@ -70,7 +70,6 @@ class CourseSectionInDB(CourseSectionBase):
     """Schema for course section in database."""
     id: int
     course_id: int
-    cluster_id: int
     created_at: datetime.datetime
 
     class Config:
@@ -192,12 +191,10 @@ class QuizBase(BaseModel):
                 "shuffle_right_side": self.shuffle_right_side if self.shuffle_right_side is not None else True
             }
         return {}
-
-
+    
 class QuizList(BaseModel):
     """List of quiz questions."""
     questions: List[QuizBase] = Field(..., description="Array of quiz questions")
-
 
 class QuizCreate(BaseModel):
     """Schema for creating quiz."""
@@ -226,25 +223,25 @@ class QuizInDB(BaseModel):
         """Pydantic config."""
         from_attributes = True
 
-# Schemas for LLM generation
-class LLMSectionOutput(BaseModel):
-    """Schema for LLM-generated section."""
-    title: str = Field(..., description="Section title")
-    content: str = Field(..., description="Detailed section content")
-    key_points: List[str] = Field(default_factory=list, description="Key takeaways")
-    examples: List[str] = Field(default_factory=list, description="Practical examples")
+class StudiesNoteBase(BaseModel):
+    """Schema for studies note."""
+    title: str = Field(..., description="Title of the study note")
+    content: str = Field(..., description="Detailed content of the study note")
 
+class StudiesNoteList(BaseModel):
+    """List of studies notes."""
+    notes: List[StudiesNoteBase] = Field(..., description="Array of study notes")
 
-class LLMQuizOutput(BaseModel):
-    """Schema for LLM-generated quiz question."""
-    question: str = Field(..., description="Quiz question")
-    question_type: str = Field(default="multiple_choice", description="Type of question")
-    options: List[str] = Field(default_factory=list, description="Answer options")
-    correct_answer: str = Field(..., description="Correct answer")
-    explanation: str = Field(..., description="Explanation of the answer")
-    difficulty: str = Field(default="medium", description="Question difficulty")
+class StudiesNoteInDB(StudiesNoteBase):
+    """Schema for studies note in database."""
+    id: int
+    course_id: int
+    section_id: Optional[int] = None
+    created_at: datetime.datetime
 
-
+    class Config:
+        """Pydantic config."""
+        from_attributes = True
 
 class CourseResponse(CourseInDB):
     """Schema for course response with sections and quizzes."""

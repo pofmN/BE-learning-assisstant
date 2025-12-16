@@ -4,10 +4,10 @@ from sqlalchemy.orm import Session
 from app.core.dependencies import get_current_active_user
 from app.db.base import get_db
 from app.models.user import User
-from app.models.course import Course
+from app.models.course import Course, CourseSection
 from app.models.document import Document
 from app.core.agents.course_manager import CourseManagerAgent
-from app.schemas.course import CourseCreate, CourseInDB, CourseCreateResponse
+from app.schemas.course import CourseCreate, CourseInDB, CourseCreateResponse, CourseSectionInDB
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -117,3 +117,26 @@ def get_course_status(
         raise HTTPException(status_code=403, detail="Not authorized to access this course")
     
     return course
+
+@router.get("/{course_id}/sections", response_model=List[CourseSectionInDB])
+def get_course_sections(
+    course_id: int,
+    db: Session = Depends(get_db),
+    current_user: Any = Depends(get_current_active_user),
+) -> Any:
+    """
+    Retrieve sections associated with a specific course.
+    
+    Args:
+        course_id: ID of the course
+        db: Database session
+
+    Returns:
+        List of course sections
+    """
+    
+    sections = db.query(CourseSection).filter(CourseSection.course_id == course_id).all()
+    if not sections:
+        raise HTTPException(status_code=404, detail="No sections found for this course.")
+    return sections
+

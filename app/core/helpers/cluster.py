@@ -218,53 +218,45 @@ class ChunkClusterer:
     ) -> Tuple[List[int], Dict[str, Any]]:
         """
         Handle very large documents (>1000 chunks).
-        Uses more efficient hierarchical clustering to avoid memory issues.
+        Uses simple K-means clustering without UMAP to avoid timeouts.
         """
         n = len(embeddings_np)
-        logger.info(f"Very large document ({n} chunks) - using Agglomerative clustering")
+        logger.info(f"Very large document ({n} chunks) - using fast K-means clustering")
         
-        # For very large docs, use simpler hierarchical clustering
-        # Estimate reasonable number of clusters (larger docs = more clusters)
-        n_clusters = max(10, min(50, n // 30))
+        # Estimate reasonable number of clusters
+        # For a 1000-page document, create ~20-50 clusters
+        n_clusters = max(20, min(100, n // 25))
         
         try:
-            # Use mini-batch for UMAP on very large datasets
-            from umap import UMAP
+            from sklearn.cluster import MiniBatchKMeans
             
-            reducer = UMAP(
-                n_neighbors=min(15, n - 1),
-                n_components=min(30, n // 50),
-                metric="cosine",
-                random_state=42,
-                low_memory=True,  # Important for large datasets
-            )
-            
-            reduced = reducer.fit_transform(embeddings_np)
-            
-            # Hierarchical clustering is more stable for large datasets
-            clusterer = AgglomerativeClustering(
+            # MiniBatchKMeans is much faster than regular KMeans for large datasets
+            clusterer = MiniBatchKMeans(
                 n_clusters=n_clusters,
-                metric='euclidean',
-                linkage='ward'
+                batch_size=1000,
+                random_state=42,
+                n_init=3,  # Fewer initializations for speed
+                max_iter=100,  # Limit iterations
+                verbose=0
             )
             
-            labels = clusterer.fit_predict(reduced) # type: ignore
+            labels = clusterer.fit_predict(embeddings_np)
             
             metadata = {
                 "n_chunks": n,
                 "n_clusters": n_clusters,
-                "method": "hierarchical_large_doc",
+                "method": "minibatch_kmeans_very_large",
                 "doc_size": DocumentSize.VERY_LARGE.value,
                 "cluster_distribution": dict(zip(*np.unique(labels, return_counts=True))),
             }
             
-            logger.info(f"Large doc clustered: {n} chunks → {n_clusters} clusters")
+            logger.info(f"Very large doc clustered: {n} chunks → {n_clusters} clusters (K-means, fast)")
             return labels.tolist(), metadata
             
         except Exception as e:
-            logger.error(f"Large document clustering failed: {e}, using fallback")
-            # Fallback: divide into fixed number of sequential clusters
-            cluster_size = max(20, n // 20)
+            logger.error(f"Very large document clustering failed: {e}, using sequential fallback")
+            # Fallback: divide into fixed-size sequential clusters
+            cluster_size = max(50, n // 30)
             labels = [i // cluster_size for i in range(n)]
             n_clusters = max(labels) + 1
             

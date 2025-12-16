@@ -16,12 +16,15 @@ from pydantic import BaseModel, Field, SecretStr
 from app.models.document_chunk import DocumentChunk
 from app.models.course import Course, CourseSection, Quiz, FlashCard, StudiesNote
 from app.core.llm_config import LLMFactory
+from app.schemas.flashcard import FlashCardBase, FlashCardList
 from app.schemas.course import (
     CourseBase,
     CourseCreate,
     CourseSectionBase,
     QuizBase,
-    QuizList
+    QuizList,
+    StudiesNoteBase,
+    StudiesNoteList,
 )
 from app.core.agents.prompts import (
     CLUSTER_SUMMARY_SYSTEM_PROMPT,
@@ -47,24 +50,6 @@ class ClusterSummary(BaseModel):
 class LLMCourseSectionList(BaseModel):
     """Schema for LLM generation of course sections."""
     sections: List[CourseSectionBase]
-
-class FlashCardBase(BaseModel):
-    """Schema for flashcard."""
-    question: str = Field(..., description="Front of the flashcard")
-    answer: str = Field(..., description="Back of the flashcard")
-
-class FlashCardList(BaseModel):
-    """List of flashcards."""
-    flashcards: List[FlashCardBase] = Field(..., description="Array of flashcards")
-
-class StudiesNoteBase(BaseModel):
-    """Schema for studies note."""
-    title: str = Field(..., description="Title of the study note")
-    content: str = Field(..., description="Detailed content of the study note")
-
-class StudiesNoteList(BaseModel):
-    """List of studies notes."""
-    notes: List[StudiesNoteBase] = Field(..., description="Array of study notes")
 
 class CourseManagerState(TypedDict):
     """State for course manager agent."""

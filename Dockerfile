@@ -18,4 +18,4 @@ COPY . .
 
 RUN mkdir -p /app/uploads
 
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]
+CMD ["sh", "-c", "echo PORT=$PORT && uvicorn app.main:app --host 0.0.0.0 --port $PORT --log-level debug"]
