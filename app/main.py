@@ -9,8 +9,6 @@ from fastapi.exceptions import RequestValidationError
 
 from app.api.v1 import api_router
 from app.core.config import settings
-from app.db.base import engine
-from app.models import Base
 import logging
 
 # Configure logging BEFORE creating the app
@@ -23,9 +21,6 @@ logging.basicConfig(
 )
 logging.getLogger("uvicorn").setLevel(logging.INFO)
 
-# Create database tables
-Base.metadata.create_all(bind=engine)
-
 # Create FastAPI app
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -36,8 +31,10 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# Configure CORS - Always apply middleware
+# Configure CORS
 cors_origins = settings.BACKEND_CORS_ORIGINS if settings.BACKEND_CORS_ORIGINS else ["*"]
+# Remove trailing slashes to avoid CORS issues
+cors_origins = [origin.rstrip('/') for origin in cors_origins]
 print(f"🔧 CORS enabled for origins: {cors_origins}")
 
 app.add_middleware(
@@ -46,6 +43,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 
