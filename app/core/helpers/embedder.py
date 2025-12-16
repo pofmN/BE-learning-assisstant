@@ -1,10 +1,10 @@
 """
-Embedding service for generating vector embeddings using Voyage AI.
+Embedding service for generating vector embeddings using OpenAI.
 """
 import logging
 import time
 from typing import List, Optional
-from voyageai.client import Client
+from openai import OpenAI
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -12,47 +12,48 @@ logger = logging.getLogger(__name__)
 
 class EmbeddingService:
     """
-    Service for generating text embeddings using Voyage AI.
+    Service for generating text embeddings using OpenAI.
     Handles batching and error handling for embedding operations.
     """
     
-    DEFAULT_MODEL = "voyage-3-large"
-    MAX_BATCH_SIZE = 24  # Voyage AI limit
+    DEFAULT_MODEL = "text-embedding-3-small"  # or "text-embedding-3-small" for faster/cheaper
+    MAX_BATCH_SIZE = 2048  # OpenAI limit for text-embedding-3-*
+    EMBEDDING_DIMENSION = 1024  # Can be 256, 1024, or 3072 for text-embedding-3-large
     
     def __init__(self, api_key: Optional[str] = None):
         """
         Initialize embedding service.
         
         Args:
-            api_key: Voyage AI API key (defaults to settings.VOYAGE_API_KEY)
+            api_key: OpenAI API key (defaults to settings.OPENAI_API_KEY)
         """
-        self.api_key = api_key or settings.VOYAGE_API_KEY
-        self._client: Optional[Client] = None
+        self.api_key = api_key or settings.OPENAI_API_KEY
+        self._client: Optional[OpenAI] = None
         
         if not self.api_key:
-            raise ValueError("VOYAGE_API_KEY not configured")
+            raise ValueError("OPENAI_API_KEY not configured")
     
     @property
-    def client(self) -> Client:
-        """Lazy initialization of Voyage AI client."""
+    def client(self) -> OpenAI:
+        """Lazy initialization of OpenAI client."""
         if self._client is None:
-            self._client = Client(api_key=self.api_key)
-            logger.info("Voyage AI client initialized")
+            self._client = OpenAI(api_key=self.api_key)
+            logger.info("OpenAI client initialized")
         return self._client
     
     def embed_chunks(
         self, 
         chunks: List[str], 
         model: str = DEFAULT_MODEL,
-        input_type: str = "document"
+        dimensions: int = EMBEDDING_DIMENSION
     ) -> List[List[float]]:
         """
         Generate embeddings for text chunks.
         
         Args:
             chunks: List of text chunks to embed
-            model: Voyage AI model to use
-            input_type: Type of input ("document" or "query")
+            model: OpenAI embedding model to use
+            dimensions: Output dimension (256, 1024, or 3072 for text-embedding-3-large)
             
         Returns:
             List of embedding vectors (each is a list of floats)
@@ -74,9 +75,9 @@ class EmbeddingService:
         try:
             # Process in batches if needed
             if len(valid_chunks) <= self.MAX_BATCH_SIZE:
-                return self._embed_batch(valid_chunks, model, input_type)
+                return self._embed_batch(valid_chunks, model, dimensions)
             else:
-                return self._embed_large_batch(valid_chunks, model, input_type)
+                return self._embed_large_batch(valid_chunks, model, dimensions)
                 
         except Exception as e:
             logger.error(f"Embedding generation failed: {e}")
@@ -85,21 +86,20 @@ class EmbeddingService:
     def _embed_batch(
         self, 
         chunks: List[str], 
-        model: str, 
-        input_type: str
+        model: str,
+        dimensions: int
     ) -> List[List[float]]:
         """Embed a single batch of chunks."""
-        response = self.client.embed(
-            texts=chunks,
+        response = self.client.embeddings.create(
+            input=chunks,
             model=model,
-            input_type=input_type,
-            output_dimension=1024
+            dimensions=dimensions
         )
         
-        # Ensure all embeddings are floats
+        # Extract embeddings in the correct order
         embeddings = [
-            [float(val) for val in emb] 
-            for emb in response.embeddings
+            [float(val) for val in data.embedding] 
+            for data in response.data
         ]
         
         logger.debug(f"Generated {len(embeddings)} embeddings")
@@ -108,29 +108,40 @@ class EmbeddingService:
     def _embed_large_batch(
         self, 
         chunks: List[str], 
-        model: str, 
-        input_type: str
+        model: str,
+        dimensions: int
     ) -> List[List[float]]:
         """Embed chunks in multiple batches."""
         all_embeddings = []
         
         for i in range(0, len(chunks), self.MAX_BATCH_SIZE):
             batch = chunks[i:i + self.MAX_BATCH_SIZE]
-            logger.debug(f"Processing batch {i//self.MAX_BATCH_SIZE + 1}")
+            batch_num = i // self.MAX_BATCH_SIZE + 1
+            total_batches = (len(chunks) + self.MAX_BATCH_SIZE - 1) // self.MAX_BATCH_SIZE
+            logger.debug(f"Processing batch {batch_num}/{total_batches} ({len(batch)} chunks)")
             
-            batch_embeddings = self._embed_batch(batch, model, input_type)
-            time.sleep(30)
+            batch_embeddings = self._embed_batch(batch, model, dimensions)
             all_embeddings.extend(batch_embeddings)
+            
+            # Add small delay to avoid rate limits (only if there are more batches)
+            if i + self.MAX_BATCH_SIZE < len(chunks):
+                time.sleep(0.1)
         
         return all_embeddings
     
-    def embed_query(self, query: str, model: str = DEFAULT_MODEL) -> List[float]:
+    def embed_query(
+        self, 
+        query: str, 
+        model: str = DEFAULT_MODEL,
+        dimensions: int = EMBEDDING_DIMENSION
+    ) -> List[float]:
         """
         Generate embedding for a single query.
         
         Args:
             query: Query text to embed
-            model: Voyage AI model to use
+            model: OpenAI embedding model to use
+            dimensions: Output dimension
             
         Returns:
             Embedding vector as list of floats
@@ -140,14 +151,13 @@ class EmbeddingService:
         
         logger.debug(f"Generating query embedding")
         
-        response = self.client.embed(
-            texts=[query.strip()],
+        response = self.client.embeddings.create(
+            input=[query.strip()],
             model=model,
-            input_type="query",
-            output_dimension=1024
+            dimensions=dimensions
         )
         
-        embedding = [float(val) for val in response.embeddings[0]]
+        embedding = [float(val) for val in response.data[0].embedding]
         return embedding
 
 
