@@ -6,7 +6,7 @@ from app.db.base import get_db, SessionLocal
 from app.models.user import User
 from app.models.course import Course, CourseSection
 from app.models.document import Document
-from app.core.agents.course_manager import CourseManagerAgent
+from app.core.agents.course.course_manager import CourseManagerAgent
 from app.schemas.course import CourseCreate, CourseInDB, CourseCreateResponse, CourseSectionInDB
 from pydantic import BaseModel
 import logging

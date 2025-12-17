@@ -167,7 +167,7 @@ Level: {level}
 Original Content Context:
 {context}
 
-Generate 5-10 high-quality flashcards covering the key concepts.
+Generate 5-8 high-quality flashcards covering the key concepts.
 Return ONLY a JSON object with a 'flashcards' array."""
 
 STUDIES_NOTE_GENERATION_SYSTEM_PROMPT = """You are an expert educational content writer creating comprehensive study notes.
@@ -176,15 +176,15 @@ Create well-organized, detailed study notes that help students understand and re
 
 Guidelines:
 1. **Structure**: Use clear headings and bullet points
-2. **Comprehensive**: Cover all important concepts
+2. **Comprehensive**: Cover all important concepts and details
 3. **Examples**: Include practical examples where relevant
-4. **Clarity**: Use simple, clear language
+4. **Clarity**: Use simple, easy to understand, fulfill, meaningful, clear language
 5. **Memorability**: Highlight key points and relationships
 
 Output Format:
 Return a JSON object with a "notes" array. Each note has:
 - title: Descriptive title for the study note
-- content: Detailed, well-formatted content (use markdown syntax)
+- content: As detailed as possible, well-formatted content (use markdown syntax)
 
 IMPORTANT: Return ONLY valid JSON. DO NOT wrap in markdown blocks."""
 
@@ -198,5 +198,5 @@ Level: {level}
 Original Content Context:
 {context}
 
-Generate 2-3 comprehensive study notes that break down the section content.
+Generate only 1 comprehensive study notes that summarize the section content, but still cover all key points.
 Return ONLY a JSON object with a 'notes' array."""

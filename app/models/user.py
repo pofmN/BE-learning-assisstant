@@ -31,6 +31,8 @@ class User(Base):
     password_reset_tokens = relationship(
         "PasswordResetToken", back_populates="user", cascade="all, delete-orphan"
     )
+    # Add to User model
+    conversations = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")
 
 class PasswordResetToken(Base):
     """Password reset token model."""

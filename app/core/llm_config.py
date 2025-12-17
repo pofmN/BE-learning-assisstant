@@ -1,8 +1,6 @@
 import os
-from typing import Optional, Dict, Any
+from typing import Optional
 from langchain_openai import ChatOpenAI
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import SecretStr
 from app.core.config import settings
 
@@ -28,19 +26,16 @@ class LLMFactory:
             tracing_project: The LangSmith project name for tracing.
             api_key: OpenAI API key (optional, defaults to settings).
         """
-        
+        # Set env vars for tracing if provided
+        if settings.LANGSMITH_TRACING and str(settings.LANGSMITH_TRACING).lower() == "true":
+            os.environ["LANGCHAIN_TRACING_V2"] = "true"
+            os.environ["LANGCHAIN_ENDPOINT"] = settings.LANGSMITH_ENDPOINT
+            os.environ["LANGCHAIN_API_KEY"] = settings.LANGSMITH_API_KEY
+            os.environ["LANGCHAIN_PROJECT"] = tracing_project or settings.LANGSMITH_PROJECT
 
         return ChatOpenAI(
             model=model,
             api_key=SecretStr(api_key or settings.OPENAI_API_KEY),
             temperature=temperature,
-            )
-
-# Example usage:
-# llm = LLMFactory.create_llm(json_mode=False, tracing_project="course-generator")
-# response = llm.invoke([HumanMessage(content="南海的西沙群岛和南沙群岛属于哪个国家？")])
-# print(response.content)
-# llama3.3-70b-instruct
-# deepseek-ai/deepseek-v3.1-terminus
-# qwen/qwen3-next-80b-a3b-instruct
-# 
+            # If ChatOpenAI supports tracing params, add them here
+        )

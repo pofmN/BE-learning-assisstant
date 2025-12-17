@@ -169,7 +169,7 @@ async def upload_document(
             file_path=file_info["gcs_path"],
             file_type=file_info["content_type"],
             file_size=file_info["file_size"],
-            status="queued",  # Changed to "queued"
+            status="queued",
             extracted_text=extracted_text,
             owner_id=current_user.id,
         )
@@ -208,6 +208,7 @@ async def get_document_status(
 ) -> Any:
     """
     Get the processing status of a document.
+    Possible statuses: queued, processing, processed, failed
     """
     document = db.query(Document).filter(Document.id == document_id, Document.owner_id==current_user.id).first()
     if not document:

@@ -1,10 +1,8 @@
 """
 Course Manager Agent for generating course content from document chunks.
 """
-import json
 import logging
 from typing import List, Dict, Any, Optional, TypedDict, Annotated
-import asyncio
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -26,7 +24,7 @@ from app.schemas.course import (
     StudiesNoteBase,
     StudiesNoteList,
 )
-from app.core.agents.prompts import (
+from app.core.agents.course.prompts import (
     CLUSTER_SUMMARY_SYSTEM_PROMPT,
     CLUSTER_SUMMARY_USER_PROMPT_TEMPLATE,
     COURSE_METADATA_SYSTEM_PROMPT,

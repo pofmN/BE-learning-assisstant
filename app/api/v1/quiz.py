@@ -12,7 +12,7 @@ from app.db.base import get_db
 from app.models.user import User
 from app.models.course import Course, CourseSection, Quiz
 from app.models.quiz_attempt import QuizSession, QuizAttempt
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 router = APIRouter()
 
@@ -23,6 +23,14 @@ class QuizSessionCreate(BaseModel):
     """Schema for starting a quiz session."""
     course_id: int
     section_id: Optional[int] = None
+    
+    @field_validator('section_id', mode='before')
+    @classmethod
+    def empty_str_to_none(cls, v):
+        """Convert empty string or null-like values to None."""
+        if v in ('', 'null', 'undefined', None):
+            return None
+        return v
 
 
 class QuizSessionResponse(BaseModel):
@@ -39,22 +47,97 @@ class QuizSessionResponse(BaseModel):
 
 
 class QuizAnswerSubmit(BaseModel):
-    """Schema for submitting a quiz answer."""
-    quiz_id: int
-    user_answer: Dict[str, Any]
-    time_spent: Optional[int] = None
+    """
+    Schema for submitting a quiz answer.
+    
+    The user_answer structure varies by question_type:
+    
+    **Multiple Choice:**
+    ```json
+    {
+        "quiz_id": 1,
+        "user_answer": {
+            "selected_id": "option_a"
+        },
+        "time_spent": 30
+    }
+    ```
+    
+    **True/False:**
+    ```json
+    {
+        "quiz_id": 2,
+        "user_answer": {
+            "answer": true
+        },
+        "time_spent": 15
+    }
+    ```
+    
+    **Matching:**
+    ```json
+    {
+        "quiz_id": 3,
+        "user_answer": {
+            "matches": {
+                "term_1": "definition_a",
+                "term_2": "definition_b"
+            }
+        },
+        "time_spent": 60
+    }
+    ```
+    
+    **Short Answer:**
+    ```json
+    {
+        "quiz_id": 4,
+        "user_answer": {
+            "answer": "photosynthesis"
+        },
+        "time_spent": 45
+    }
+    ```
+    """
+    quiz_id: int = Field(..., description="ID of the quiz question being answered")
+    user_answer: Dict[str, Any] = Field(
+        ..., 
+        description="User's answer (structure depends on question_type)",
+        examples=[
+            {"selected_id": "option_a"},  # Multiple choice
+            {"answer": True},  # True/False
+            {"matches": {"term_1": "def_a", "term_2": "def_b"}},  # Matching
+            {"answer": "photosynthesis"}  # Short answer
+        ]
+    )
+    time_spent: Optional[int] = Field(
+        default=None, 
+        description="Time spent on this question in seconds",
+        ge=0
+    )
 
 
 class QuizAttemptResponse(BaseModel):
-    """Schema for quiz attempt response."""
-    attempt_id: int
-    quiz_id: int
-    is_correct: bool
-    user_answer: Dict[str, Any]
-    correct_answer: Dict[str, Any]
-    explanation: Optional[str]
-    question: str
-    question_type: str
+    """
+    Schema for quiz attempt response.
+    
+    Returns the graded attempt with feedback.
+    The `correct_answer` structure matches the question_type format.
+    """
+    attempt_id: int = Field(..., description="Unique ID of this attempt")
+    quiz_id: int = Field(..., description="ID of the quiz question")
+    is_correct: bool = Field(..., description="Whether the answer was correct")
+    user_answer: Dict[str, Any] = Field(..., description="The user's submitted answer")
+    correct_answer: Dict[str, Any] = Field(
+        ..., 
+        description="The correct answer with full question_data structure"
+    )
+    explanation: Optional[str] = Field(None, description="Explanation of the correct answer")
+    question: str = Field(..., description="The question text")
+    question_type: str = Field(
+        ..., 
+        description="Type of question: multiple_choice, true_false, matching, or short_answer"
+    )
 
 
 class QuizSessionResult(BaseModel):
@@ -77,7 +160,7 @@ def get_course_quizzes(
 ) -> Any:
     """
     Get all quizzes for a course.
-    Returns quizzes WITHOUT correct answers.
+    Returns quizzes with correct answers.
     """
     # Verify course exists and user has access
     course = db.query(Course).filter(Course.id == course_id).first()
@@ -89,7 +172,7 @@ def get_course_quizzes(
     
     quizzes = query.all()
     
-    # Return questions without correct answers
+    # Return questions with correct answers
     return [
         {
             "quiz_id": q.id,
@@ -198,6 +281,53 @@ def submit_quiz_answer(
     """
     Submit an answer for a quiz question.
     Returns immediate feedback (correct/incorrect) and explanation.
+    
+    ## Request Body Structure
+    
+    The `user_answer` field structure depends on the question type:
+    
+    ### Multiple Choice
+    ```json
+    {
+        "quiz_id": 1,
+        "user_answer": {
+            "selected_id": "option_a"
+        },
+        "time_spent": 30
+    }
+    ```
+    - `selected_id`: The ID of the selected option
+    
+    ### True/False
+    ```json
+    {
+        "quiz_id": 2,
+        "user_answer": {
+            "answer": true
+        },
+        "time_spent": 15
+    }
+    ```
+    - `answer`: Boolean value (true or false)
+    
+    ### Matching
+    ```json
+    {
+        "quiz_id": 3,
+        "user_answer": {
+            "matches": {
+                "term_1": "definition_a",
+                "term_2": "definition_b",
+                "term_3": "definition_c"
+            }
+        },
+        "time_spent": 60
+    }
+    ```
+    - `matches`: Object mapping term IDs to definition IDs
+    
+    ## Response
+    Returns the graded attempt with correct answer and explanation.
     """
     # Verify session
     session = db.query(QuizSession).filter(

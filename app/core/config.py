@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
 
     # LangSmith
-    LANGSMITH_TRACING: bool = False
+    LANGSMITH_TRACING: str = ""
     LANGSMITH_ENDPOINT: str = ""
     LANGSMITH_API_KEY: str = ""
     LANGSMITH_PROJECT: str = ""
