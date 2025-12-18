@@ -268,3 +268,13 @@ def get_course_sections(
         raise HTTPException(status_code=404, detail="No sections found for this course.")
     return sections
 
+@router.get("/", response_model=List[CourseInDB])
+def list_user_courses(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+) -> Any:
+    """
+    List all courses for the current user.
+    """
+    courses = db.query(Course).join(Document).filter(Document.owner_id == current_user.id).all()
+    return courses
