@@ -7,6 +7,8 @@ from typing import Optional, Tuple
 from datetime import datetime, timedelta
 import mimetypes
 from pathlib import Path
+from io import BytesIO
+from PIL import Image
 
 from google.cloud import storage
 from google.cloud.exceptions import GoogleCloudError
@@ -46,6 +48,24 @@ class FileService:
         if file_size == 0:
             return False, "File size is zero."
         return True, ""
+    
+    def _is_allowed_image(self, file: UploadFile) -> Tuple[bool, str]:
+        """Check if the image file has an allowed extension(".jpg", ".jpeg", ".png")"""
+        allowed_image_extensions = settings.ALLOWED_IMAGE_EXTENSIONS
+        file_extension = Path(file.filename).suffix.lower() #type: ignore
+
+        if file_extension not in allowed_image_extensions:
+            return False, f"Image file type '{file_extension}' is not allowed."
+        
+        file.file.seek(0, 2)  # Seek to end
+        file_size = file.file.tell()
+        file.file.seek(0)
+        if file_size > settings.MAX_IMAGE_UPLOAD_SIZE:
+            return False, f"Image file size exceeds the maximum limit of {settings.MAX_IMAGE_UPLOAD_SIZE} bytes."
+        
+        if file_size == 0:
+            return False, "Image file size is zero."
+        return True, ""    
     
     async def upload_file(self, file: UploadFile, user_id: int, metadata: Optional[dict] = None) -> dict:
         """Upload a file to Google Cloud Storage."""
@@ -139,3 +159,57 @@ class FileService:
         except GoogleCloudError as e:
             logger.error(f"Failed to check existence of file '{gcs_path}': {e}")
             return False
+
+    def upload_img(self, file: UploadFile, user_id: int) -> dict:
+        """Upload an image file to Google Cloud Storage."""
+        is_valid, message = self._is_allowed_image(file)
+        if not is_valid:
+            logger.warning(f"Image file validation failed: {message}")
+            return {"success": False, "message": message}
+        gcs_filename = f"user_{user_id}/avatars/{datetime.now().strftime('%Y%m%d%H%M%S')}_{file.filename}"
+        try:
+            file_bytes = file.file.read()
+            resized_image = self.resize_avatar(file_bytes)
+            blob = self.bucket.blob(gcs_filename)
+            content_type = file.content_type or mimetypes.guess_type(file.filename)[0] or "application/octet-stream" #type: ignore
+            blob_metatadata = {
+                "original_filename": file.filename,
+                "uploaded_by": str(user_id),
+                "upload_time": datetime.now().isoformat()
+            }
+            blob.metadata = blob_metatadata
+
+            blob.upload_from_file(resized_image, content_type=content_type, timeout=120)
+            logger.info(f"Image file '{file.filename}' uploaded successfully as '{gcs_filename}'.")
+            file_size = blob.size
+            public_url = blob.public_url if blob.public_url else None
+
+            return {
+                "filename": file.filename,
+                "gcs_path": gcs_filename,
+                "file_size": file_size,
+                "content_type": content_type,
+                "public_url": public_url,
+                "bucket": settings.GCS_BUCKET_NAME,
+                "success": True,
+            }
+        except GoogleCloudError as e:
+            logger.error(f"Failed to upload image file '{file.filename}': {e}")
+            raise
+        except Exception as e:
+            logger.error(f"An unexpected error occurred while uploading image file '{file.filename}': {e}")
+            raise
+
+    def resize_avatar(
+        self,
+        file_bytes: bytes,
+        size: int = 256,
+        format: str = "JPEG"
+    ) -> BytesIO:
+        image = Image.open(BytesIO(file_bytes)).convert("RGB")
+        image.thumbnail((size, size))
+
+        output = BytesIO()
+        image.save(output, format=format, quality=85)
+        output.seek(0)
+        return output

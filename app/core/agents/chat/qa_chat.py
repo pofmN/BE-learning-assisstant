@@ -256,7 +256,7 @@ class QAChatAgent:
                 query=user_message,
                 document_ids=document_ids,
                 top_k=5,
-                similarity_threshold=0.5
+                similarity_threshold=0.1
             )
             
             if not chunks:

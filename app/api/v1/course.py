@@ -278,3 +278,47 @@ def list_user_courses(
     """
     courses = db.query(Course).join(Document).filter(Document.owner_id == current_user.id).all()
     return courses
+
+@router.post("/{course_id}/modify")
+def modify_course(
+    course_id: int,
+    course_update: CourseInDB,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+) -> Any:
+    """
+    Modify an existing course by re-generating its content.
+    
+    Args:
+        course_id: ID of the course to modify
+        course_update: New course configuration
+        db: Database session
+        current_user: Currently authenticated user
+    """
+    course = db.query(Course).filter(Course.id == course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    # Verify ownership through document
+    document = db.query(Document).filter(Document.id == course.document_id, Document.owner_id == current_user.id).first()
+    if not document:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this course")
+
+    try:
+        modified_course = Course(
+            document_id=course.document_id,
+            title=course_update.title,
+            description=course_update.description,
+        )
+        db.add(modified_course)
+        db.commit()
+        db.refresh(modified_course)
+        logger.info(f"Updating course ID '{course_id}'")
+    except Exception as e:
+        logger.error(f"Failed to modify course '{course_id}': {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to modify course: {str(e)}")
+
+    return CourseCreateResponse(
+        course_id=course.id,  # type: ignore
+        status="completed",
+        message="Course modification completed successfully."
+    )

@@ -1,7 +1,7 @@
 """
 Models for tracking user quiz attempts and sessions.
 """
-from sqlalchemy import Column, Integer, String, Boolean, JSON, DateTime, ForeignKey, Float
+from sqlalchemy import Column, Integer, String, Boolean, JSON, DateTime, ForeignKey, Float, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.base import Base
@@ -16,6 +16,15 @@ class QuizSession(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     course_id = Column(Integer, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False)
     section_id = Column(Integer, ForeignKey("course_sections.id", ondelete="SET NULL"), nullable=True)
+    
+    # Session type: regular, section, final_review
+    session_type = Column(String(50), default="regular")
+    
+    # For final_review with existing quizzes: stores JSON array of quiz IDs
+    selected_quiz_ids = Column(String, nullable=True)
+    
+    # For final_review with LLM-generated questions: stores full question data
+    generated_questions = Column(Text, nullable=True)
     
     status = Column(String, default="in_progress")  # in_progress, completed, abandoned
     total_questions = Column(Integer, default=0)

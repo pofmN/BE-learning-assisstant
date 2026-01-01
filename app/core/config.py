@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     GCS_CREDENTIALS_PATH: str = ""
     ALLOWED_FILE_EXTENSIONS: List[str] = [".pdf", ".docx", ".txt", ".pptx"]
     MAX_UPLOAD_SIZE: int = 10485760
+    ALLOWED_IMAGE_EXTENSIONS: List[str] = [".jpg", ".jpeg", ".png"]
+    MAX_IMAGE_UPLOAD_SIZE: int = 5242880
 
     # JWT
     SECRET_KEY: str = ""

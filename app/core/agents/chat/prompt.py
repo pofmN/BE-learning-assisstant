@@ -58,16 +58,16 @@ RAG_ANSWER_USER_PROMPT_TEMPLATE = """Student Question: {question}
 
 Relevant Document Excerpts:
 {context}
-
+Here is the previous conversation history:
 {conversation_history}
 
-Please provide a clear, helpful answer based on the document excerpts above."""
+Based on the document and history chat excerpts above, understand student needs and serve user intends"""
 
 
 # Conversation summarization prompt
 SUMMARIZATION_SYSTEM_PROMPT = """You are a conversation summarizer for a Q&A learning system.
 
-Your task is to create a concise summary of a conversation segment (typically 5 Q&A pairs).
+Your task is to create a concise summary of a conversation segment.
 
 The summary should:
 - Capture the main topics discussed
