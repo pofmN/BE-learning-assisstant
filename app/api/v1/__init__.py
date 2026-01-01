@@ -1,7 +1,7 @@
 """API v1 router."""
 from fastapi import APIRouter
 
-from app.api.v1 import auth, document, course, flashcard, progress, quiz, studies_note, conversation, review_quiz
+from app.api.v1 import auth, document, course, flashcard, progress, quiz, studies_note, conversation, review_quiz, user
 
 api_router = APIRouter()
 
@@ -14,3 +14,4 @@ api_router.include_router(progress.router, prefix="/progress", tags=["Progress T
 api_router.include_router(quiz.router, prefix="/quiz", tags=["Quizzes"])
 api_router.include_router(conversation.router, prefix="/conversation", tags=["Q&A Chat"])
 api_router.include_router(review_quiz.router, prefix="", tags=["Review Quiz"])
+api_router.include_router(user.router, prefix="/user", tags=["User ProfileManagement"])

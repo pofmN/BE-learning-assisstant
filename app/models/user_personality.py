@@ -15,6 +15,5 @@ class UserPersonality(Base):
     about_me = Column(String, nullable=True)
     school_name = Column(String, nullable=True)
     memories = Column(String, nullable=True)
-    avatar_url = Column(String, nullable=True)  # URL to user's avatar image
     # Relationship to User
     user = relationship("User", backref="personality")

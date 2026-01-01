@@ -14,6 +14,7 @@ from app.core.config import settings
 from app.core.dependencies import get_current_active_user, get_db
 from app.core.security import create_access_token, get_password_hash, verify_password, create_verification_token
 from app.models.user import User, PasswordResetToken
+from app.models.user_personality import UserPersonality
 from app.schemas.user import Token, User as UserSchema, UserCreate
 from app.schemas.auth import ResetPassword
 from app.services.mail_service import MailService
@@ -64,6 +65,8 @@ async def register(user_in: UserCreate, db: Session = Depends(get_db), backgroun
         is_active=False,
     )
     db.add(user)
+    user_personality = UserPersonality(user_id=user.id)
+    db.add(user_personality)
     db.commit()
     db.refresh(user)
     token = create_verification_token(str(user.id), user.email) # type: ignore
