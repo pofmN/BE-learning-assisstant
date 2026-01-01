@@ -150,6 +150,7 @@ class QuizSessionResult(BaseModel):
     correct_answers: int
     incorrect_answers: int
     score_percentage: float
+    started_at: datetime
     completed_at: datetime
     attempts: List[QuizAttemptResponse]
 
@@ -609,6 +610,7 @@ def get_quiz_results(
         correct_answers=session.correct_answers,# type: ignore
         incorrect_answers=session.total_questions - session.correct_answers,# type: ignore
         score_percentage=session.score_percentage,# type: ignore
+        started_at=session.started_at,  # type: ignore
         completed_at=session.completed_at,  # type: ignore
         attempts=attempt_responses
     )
