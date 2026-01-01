@@ -512,9 +512,9 @@ def complete_quiz_session(
     attempts = db.query(QuizAttempt).filter(QuizAttempt.session_id == session_id).all()
     
     # Calculate score
-    total = len(attempts)
+    total_questions = session.total_questions  # Use the total number of questions in the session
     correct = sum(1 for a in attempts if a.is_correct)  # type: ignore
-    score_percentage = (correct / total * 100) if total > 0 else 0
+    score_percentage = (correct / total_questions * 100) if total_questions > 0 else 0 # type: ignore
     
     # Update session
     session.status = "completed"  # type: ignore
@@ -556,10 +556,10 @@ def complete_quiz_session(
     
     return QuizSessionResult(
         session_id=session.id,  # type: ignore
-        total_questions=total,
+        total_questions=total_questions, # type: ignore
         correct_answers=correct,
-        incorrect_answers=total - correct,
-        score_percentage=score_percentage,
+        incorrect_answers=total_questions - correct, # type: ignore
+        score_percentage=score_percentage, # type: ignore
         completed_at=session.completed_at,  # type: ignore
         attempts=attempt_responses
     )
