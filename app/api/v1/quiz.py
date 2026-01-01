@@ -561,6 +561,7 @@ def complete_quiz_session(
         correct_answers=correct,
         incorrect_answers=total_questions - correct, # type: ignore
         score_percentage=score_percentage, # type: ignore
+        started_at=session.started_at,  # type: ignore
         completed_at=session.completed_at,  # type: ignore
         attempts=attempt_responses
     )
