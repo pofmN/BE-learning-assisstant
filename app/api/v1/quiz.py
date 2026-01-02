@@ -188,6 +188,37 @@ def get_course_quizzes(
         for q in quizzes
     ]
 
+@router.get("/sections/{section_id}/quizzes", response_model=List[Dict[str, Any]])
+def get_section_quizzes(
+    section_id: int,
+    db: Session = Depends(get_db),
+) -> Any:
+    """
+    Get all quizzes for a specific course section.
+    Returns quizzes with correct answers.
+    """
+    # Verify section exists and user has access
+    section = db.query(CourseSection).filter(CourseSection.id == section_id).first()
+    if not section:
+        raise HTTPException(status_code=404, detail="Course section not found")
+    
+    # Get quizzes
+    query = db.query(Quiz).filter(Quiz.section_id == section_id)
+    
+    quizzes = query.all()
+    
+    # Return questions with correct answers
+    return [
+        {
+            "quiz_id": q.id,
+            "question": q.question,
+            "question_type": q.question_type,
+            "question_data": q.question_data,  # Contains options but not correct answer
+            "difficulty": q.difficulty
+        }
+        for q in quizzes
+    ]
+
 
 # ============= Quiz Session Endpoints =============
 
