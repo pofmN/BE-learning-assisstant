@@ -15,6 +15,7 @@ from app.models.user import User
 from app.models.course import Course, CourseSection, Quiz
 from app.models.quiz_attempt import QuizSession, QuizAttempt
 from pydantic import BaseModel, Field, field_validator
+from app.core.permissions import require_course_interaction
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -231,11 +232,11 @@ def start_quiz_session(
     """
     Start a new quiz session for a course or specific section.
     Returns session_id and list of quiz questions.
+    
+    Access: Requires login. User must be owner or enrolled.
     """
-    # Verify course exists and user has access
-    course = db.query(Course).filter(Course.id == session_data.course_id).first()
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
+    # Verify course access and require login
+    course = require_course_interaction(session_data.course_id, current_user, db)
     
     # Get quizzes for session
     query = db.query(Quiz).filter(Quiz.course_id == session_data.course_id)

@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime
 from typing import Literal, Optional, List, Dict, Any, Union
 from pydantic import BaseModel, Field, field_validator
 
@@ -27,8 +27,8 @@ class CourseInDB(CourseBase):
     id: int
     document_id: int
     status: str
-    created_at: datetime.datetime
-    updated_at: Optional[datetime.datetime] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
 
     class Config:
         """Pydantic config."""
@@ -70,7 +70,7 @@ class CourseSectionInDB(CourseSectionBase):
     """Schema for course section in database."""
     id: int
     course_id: int
-    created_at: datetime.datetime
+    created_at: datetime
 
     class Config:
         """Pydantic config."""
@@ -217,7 +217,7 @@ class QuizInDB(BaseModel):
     question_data: Dict[str, Any]
     explanation: str
     difficulty: str
-    created_at: datetime.datetime
+    created_at: datetime
 
     class Config:
         """Pydantic config."""
@@ -237,7 +237,7 @@ class StudiesNoteInDB(StudiesNoteBase):
     id: int
     course_id: int
     section_id: Optional[int] = None
-    created_at: datetime.datetime
+    created_at: datetime
 
     class Config:
         """Pydantic config."""
@@ -250,5 +250,80 @@ class CourseResponse(CourseInDB):
 
     class Config:
         """Pydantic config."""
+        from_attributes = True
+
+# ============= COURSE SHARING =============
+
+class CourseShareCreate(BaseModel):
+    """
+    Schema for creating a share link.
+    
+    Fields:
+    - is_public: Allow anonymous viewing (default: True)
+    - expires_in_days: Optional expiration (None = never expires)
+    """
+    is_public: bool = Field(
+        default=True,
+        description="If True, anyone with link can view. If False, login required."
+    )
+    expires_in_days: Optional[int] = Field(
+        default=None,
+        description="Number of days until link expires. None means never expires.",
+        ge=1,  # Must be at least 1 day
+        le=365  # Max 1 year
+    )
+
+
+class CourseShareResponse(BaseModel):
+    """
+    Response after creating a share link.
+    
+    Returns the full URL and metadata for the frontend to display.
+    """
+    id: int
+    course_id: int
+    share_token: str
+    share_url: str  # Full URL with domain
+    is_public: bool
+    expires_at: Optional[datetime]
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class CourseShareList(BaseModel):
+    """Schema for listing share links (for course owner)."""
+    id: int
+    share_token: str
+    share_url: str
+    is_public: bool
+    expires_at: Optional[datetime]
+    created_at: datetime
+    access_count: int = 0  # Future: track how many people used this link
+    
+    class Config:
+        from_attributes = True
+
+
+class CourseEnrollmentResponse(BaseModel):
+    """Response when a user enrolls via share link."""
+    enrolled: bool
+    course_id: int
+    course_title: str
+    message: str
+    access_level: str  # "view_only" or "full"
+
+
+class CourseWithAccess(CourseInDB):
+    """
+    Extended course schema that includes access information.
+    Used when listing courses to show ownership vs enrollment.
+    """
+    is_owner: bool  # True if user uploaded the document
+    enrolled_via: Optional[str] = None  # How user got access (if enrolled)
+    enrolled_at: Optional[datetime] = None
+    
+    class Config:
         from_attributes = True
 

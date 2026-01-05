@@ -12,6 +12,7 @@ from app.models.user import User
 from app.models.course import Course, FlashCard
 from app.models.quiz_attempt import FlashcardReview
 from app.schemas.flashcard import FlashcardResponse, FlashcardReviewSubmit, FlashcardStudyInSectionResponse, FlashcardStudyInCourseResponse
+from app.core.permissions import require_course_interaction
 
 router = APIRouter()
 
@@ -28,15 +29,15 @@ def get_course_flashcards(
     """
     Get flashcards for a course or section.
     
+    Access: Requires login. User must be owner or enrolled.
+    
     Args:
         course_id: Course ID
         section_id: Optional section filter
         due_only: If True, only return cards due for review
     """
-    # Verify course access
-    course = db.query(Course).filter(Course.id == course_id).first()
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
+    # Verify course access and require login for interaction
+    course = require_course_interaction(course_id, current_user, db)
     
     # Query flashcards
     query = db.query(FlashCard).filter(FlashCard.course_id == course_id)
@@ -98,10 +99,17 @@ def get_flashcard(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ) -> Any:
-    """Get a single flashcard with review stats."""
+    """
+    Get a single flashcard with review stats.
+    
+    Access: Requires login. User must be owner or enrolled.
+    """
     card = db.query(FlashCard).filter(FlashCard.id == flashcard_id).first()
     if not card:
         raise HTTPException(status_code=404, detail="Flashcard not found")
+    
+    # Verify course access
+    require_course_interaction(card.course_id, current_user, db)  # type: ignore
     
     # Get review stats
     reviews = db.query(FlashcardReview).filter(
@@ -138,11 +146,16 @@ def review_flashcard(
     """
     Submit a flashcard review with confidence level.
     Uses spaced repetition algorithm to schedule next review.
+    
+    Access: Requires login. User must be owner or enrolled.
     """
     # Verify flashcard exists
     card = db.query(FlashCard).filter(FlashCard.id == review_data.flashcard_id).first()
     if not card:
         raise HTTPException(status_code=404, detail="Flashcard not found")
+    
+    # Verify course access
+    require_course_interaction(card.course_id, current_user, db)  # type: ignore
     
     # Calculate next review date based on confidence (spaced repetition)
     next_review_date = _calculate_next_review(review_data.confidence_level)

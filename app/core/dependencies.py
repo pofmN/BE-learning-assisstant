@@ -83,3 +83,39 @@ def get_current_active_user(current_user: User = Depends(get_current_user)) -> U
     if not cast(bool, current_user.is_active):
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
+
+
+def get_current_user_optional(
+    db: Session = Depends(get_db),
+    token: Optional[str] = Depends(oauth2_scheme)
+) -> Optional[User]:
+    """
+    Get current user if authenticated, otherwise return None.
+
+    This is used for endpoints that work both authenticated and anonymous.
+    Unlike get_current_user(), this does NOT raise 401 if token is missing.
+
+    Use cases:
+    - Public share links that enhance experience for logged-in users
+    - Endpoints that show different data based on auth status
+
+    Args:
+        db: Database session
+        token: Optional JWT token
+
+    Returns:
+        User object if authenticated, None otherwise
+    """
+    if token is None:
+        return None
+
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id: Optional[str] = payload.get("sub")
+        if user_id is None:
+            return None
+    except JWTError:
+        return None
+
+    user = db.query(User).filter(User.id == int(user_id)).first()
+    return user

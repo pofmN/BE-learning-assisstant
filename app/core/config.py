@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     # JWT
     SECRET_KEY: str = ""
     ALGORITHM: str = ""
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 90
 
     # LLM
     VOYAGE_API_KEY: str = ""

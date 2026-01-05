@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, JSON, Boolean, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.base import Base
@@ -95,3 +95,78 @@ class StudiesNote(Base):
     # Relationships
     course = relationship("Course", backref="studies_notes")
     section = relationship("CourseSection", backref="studies_notes")
+
+
+# ============= COURSE SHARING =============
+
+class CourseShare(Base):
+    """
+    Course sharing model - manages shareable links for courses.
+    
+    Design decisions:
+    - share_token: Unique 64-char token for URL safety and security
+    - is_public: Boolean flag to control anonymous access
+      - True: Anyone with link can view (read-only if not logged in)
+      - False: Must be logged in to access
+    - expires_at: Optional expiration for time-limited sharing
+    - created_by: Tracks who created the link (for audit trail)
+    
+    Why this approach?
+    - Token-based instead of course_id in URL prevents enumeration attacks
+    - Separate table allows multiple share links per course (future: different permissions)
+    - Expiration allows temporary access without manual revocation
+    """
+    
+    __tablename__ = "course_shares"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    course_id = Column(Integer, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False)
+    share_token = Column(String(64), unique=True, nullable=False, index=True)
+    is_public = Column(Boolean, default=False, nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Relationships
+    course = relationship("Course", backref="shares")
+    creator = relationship("User", foreign_keys=[created_by])
+
+
+class CourseEnrollment(Base):
+    """
+    Course enrollment model - tracks user access to courses.
+    
+    Design decisions:
+    - Composite unique constraint (user_id + course_id): One enrollment per user per course
+    - enrolled_via: Track enrollment source for analytics
+      - "share_link": Via shareable link
+      - "direct": Manual enrollment (future feature)
+      - "invitation": Email invitation (future feature)
+    
+    Why this approach?
+    - Separates ownership (Document) from access (Enrollment)
+    - Allows many-to-many relationship: many users → many courses
+    - Persistent access: enrollment survives link expiration/deletion
+    - Scalable: easy to add enrollment metadata (progress, completion, etc.)
+    
+    Cascade behavior:
+    - If user deleted → delete their enrollments (CASCADE)
+    - If course deleted → delete all enrollments (CASCADE)
+    """
+    
+    __tablename__ = "course_enrollments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    course_id = Column(Integer, ForeignKey("courses.id", ondelete="CASCADE"), nullable=False)
+    enrolled_via = Column(String, nullable=True)  # "share_link", "direct", "invitation"
+    enrolled_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Unique constraint: prevent duplicate enrollments
+    __table_args__ = (
+        UniqueConstraint('user_id', 'course_id', name='unique_user_course_enrollment'),
+    )
+    
+    # Relationships
+    user = relationship("User", backref="course_enrollments")
+    course = relationship("Course", backref="enrollments")

@@ -10,6 +10,7 @@ from app.schemas.learning import (
     WeakArea,
 )
 from app.schemas.common import Message, ErrorResponse, SuccessResponse
+from app.schemas.course import CourseShareCreate, CourseShareResponse, CourseWithAccess
 
 __all__ = [
     "User",
@@ -29,4 +30,7 @@ __all__ = [
     "Message",
     "ErrorResponse",
     "SuccessResponse",
+    "CourseShareCreate",
+    "CourseShareResponse",
+    "CourseWithAccess",
 ]

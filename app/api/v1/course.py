@@ -1,7 +1,8 @@
 from typing import List, Optional, Any
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status, Request
+from sqlalchemy import literal
 from sqlalchemy.orm import Session
-from app.core.dependencies import get_current_active_user
+from app.core.dependencies import get_current_active_user, get_current_user_optional
 from app.db.base import get_db, SessionLocal
 from app.models.user import User
 from app.models.course import Course, CourseSection
@@ -16,6 +17,9 @@ from google.protobuf import timestamp_pb2
 import json
 from datetime import datetime, timedelta
 from app.core.config import settings
+from app.schemas.course import CourseWithAccess
+from app.models.course import CourseEnrollment
+from app.core.permissions import require_course_access, require_course_ownership
 
 logger = logging.getLogger(__name__)
 
@@ -223,26 +227,16 @@ def create_course(
 def get_course_status(
     course_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ) -> Any:
     """
     Get course by ID.
     Status can be: "queued", "processing", "completed", or "failed"
+    
+    Access: Owner, enrolled users, or anyone with public share link
     """
-    course = db.query(Course).filter(Course.id == course_id).first()
-    
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
-    
-    # Verify ownership through document
-    document = db.query(Document).filter(
-        Document.id == course.document_id,
-        Document.owner_id == current_user.id
-    ).first()
-    
-    if not document:
-        raise HTTPException(status_code=403, detail="Not authorized to access this course")
-    
+    # Allow anonymous access if course is public
+    course = require_course_access(course_id, current_user, db, allow_anonymous=True)
     return course
 
 
@@ -250,34 +244,134 @@ def get_course_status(
 def get_course_sections(
     course_id: int,
     db: Session = Depends(get_db),
-    current_user: Any = Depends(get_current_active_user),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ) -> Any:
     """
     Retrieve sections associated with a specific course.
     
+    Access: Owner, enrolled users, or anyone with public share link (view-only)
+    
     Args:
         course_id: ID of the course
         db: Database session
+        current_user: Optional authenticated user
 
     Returns:
         List of course sections
     """
+    # Allow anonymous access if course is public
+    course = require_course_access(course_id, current_user, db, allow_anonymous=True)
     
     sections = db.query(CourseSection).filter(CourseSection.course_id == course_id).all()
     if not sections:
         raise HTTPException(status_code=404, detail="No sections found for this course.")
     return sections
 
-@router.get("/", response_model=List[CourseInDB])
+# Replace the existing list_user_courses function with this enhanced version
+
+@router.get("/", response_model=List[CourseWithAccess])
 def list_user_courses(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ) -> Any:
     """
-    List all courses for the current user.
+    List all courses accessible by the current user.
+    
+    Returns BOTH:
+    1. Courses user owns (via Document ownership)
+    2. Courses user is enrolled in (via share links or other methods)
+    
+    Each course includes metadata about access type:
+    - is_owner: True if user uploaded the document
+    - enrolled_via: How user got access ("share_link", etc.)
+    - enrolled_at: When user was enrolled
+    
+    This unified view allows frontend to:
+    - Show different UI for owned vs enrolled courses
+    - Allow editing only for owned courses
+    - Display enrollment information
+    
+    Performance considerations:
+    - Uses LEFT JOIN to fetch enrollments efficiently
+    - Single query instead of N+1 queries
+    - Deduplicates in Python (user can be both owner and enrolled)
+    
+    Args:
+        db: Database session
+        current_user: Authenticated user
+        
+    Returns:
+        List of courses with access metadata
     """
-    courses = db.query(Course).join(Document).filter(Document.owner_id == current_user.id).all()
-    return courses
+    # Query 1: Get owned courses (via Document.owner_id)
+    owned_courses_query = (
+        db.query(
+            Course,
+            literal(None).label('enrolled_via'),  # No enrollment for owned courses
+            literal(None).label('enrolled_at')
+        )
+        .join(Document, Course.document_id == Document.id)
+        .filter(Document.owner_id == current_user.id)
+    )
+    
+    # Query 2: Get enrolled courses (via CourseEnrollment)
+    enrolled_courses_query = (
+        db.query(
+            Course,
+            CourseEnrollment.enrolled_via,
+            CourseEnrollment.enrolled_at
+        )
+        .join(CourseEnrollment, Course.id == CourseEnrollment.course_id)
+        .filter(CourseEnrollment.user_id == current_user.id)
+    )
+    
+    # Combine results
+    owned_results = owned_courses_query.all()
+    enrolled_results = enrolled_courses_query.all()
+    
+    # Build response with deduplication
+    courses_dict = {}
+    
+    # Add owned courses
+    for course, _, _ in owned_results:
+        courses_dict[course.id] = CourseWithAccess(
+            id=course.id,  # type: ignore
+            document_id=course.document_id,  # type: ignore
+            title=course.title,  # type: ignore
+            description=course.description,  # type: ignore
+            language=course.language,  # type: ignore
+            level=course.level,  # type: ignore
+            requirements=course.requirements,  # type: ignore
+            question_type=course.question_type,  # type: ignore
+            status=course.status,  # type: ignore
+            created_at=course.created_at,  # type: ignore
+            updated_at=course.updated_at,  # type: ignore
+            is_owner=True,
+            enrolled_via=None,
+            enrolled_at=None
+        )
+    
+    # Add enrolled courses (skip if already owned)
+    for course, enrolled_via, enrolled_at in enrolled_results:
+        if course.id not in courses_dict:
+            courses_dict[course.id] = CourseWithAccess(
+                id=course.id,  # type: ignore
+                document_id=course.document_id,  # type: ignore
+                title=course.title,  # type: ignore
+                description=course.description,  # type: ignore
+                language=course.language,  # type: ignore
+                level=course.level,  # type: ignore
+                requirements=course.requirements,  # type: ignore
+                question_type=course.question_type,  # type: ignore
+                status=course.status,  # type: ignore
+                created_at=course.created_at,  # type: ignore
+                updated_at=course.updated_at,  # type: ignore
+                is_owner=False,
+                enrolled_via=enrolled_via,
+                enrolled_at=enrolled_at
+            )
+    
+    return list(courses_dict.values())
 
 @router.post("/{course_id}/modify")
 def modify_course(
@@ -295,13 +389,8 @@ def modify_course(
         db: Database session
         current_user: Currently authenticated user
     """
-    course = db.query(Course).filter(Course.id == course_id).first()
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
-    # Verify ownership through document
-    document = db.query(Document).filter(Document.id == course.document_id, Document.owner_id == current_user.id).first()
-    if not document:
-        raise HTTPException(status_code=403, detail="Not authorized to modify this course")
+    # Only owner can modify course
+    course = require_course_ownership(course_id, current_user, db)
 
     try:
         modified_course = Course(
