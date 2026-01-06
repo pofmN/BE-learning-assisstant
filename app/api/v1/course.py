@@ -7,6 +7,7 @@ from app.db.base import get_db, SessionLocal
 from app.models.user import User
 from app.models.course import Course, CourseSection
 from app.models.document import Document
+from app.schemas.document import Document as DocumentSchema
 from app.core.agents.course.course_manager import CourseManagerAgent
 from app.schemas.course import CourseCreate, CourseInDB, CourseCreateResponse, CourseSectionInDB
 from pydantic import BaseModel
@@ -267,7 +268,33 @@ def get_course_sections(
         raise HTTPException(status_code=404, detail="No sections found for this course.")
     return sections
 
-# Replace the existing list_user_courses function with this enhanced version
+
+@router.get("/{course_id}/list-document", response_model=List[DocumentSchema])
+def list_course_document(
+    course_id: int,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+) -> Any:
+    """
+    Retrieve the document associated with a specific course.
+    
+    Access: Owner, enrolled users, or anyone with public share link (view-only)
+    
+    Args:
+        course_id: ID of the course
+        db: Database session
+        current_user: Optional authenticated user
+
+    Returns:
+        Document associated with the course
+    """
+    # Allow anonymous access if course is public
+    course = require_course_access(course_id, current_user, db, allow_anonymous=True)
+    
+    documents = db.query(Document).filter(Document.id == course.document_id)
+    if not documents:
+        raise HTTPException(status_code=404, detail="Document not found for this course.")
+    return documents
 
 @router.get("/", response_model=List[CourseWithAccess])
 def list_user_courses(
