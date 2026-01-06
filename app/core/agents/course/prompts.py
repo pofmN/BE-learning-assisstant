@@ -146,14 +146,18 @@ Create concise, effective flashcards for active recall and spaced repetition lea
 Guidelines:
 1. **Question Side**: Clear, specific question or prompt
 2. **Answer Side**: Concise, accurate answer (2-3 sentences max)
-3. **Atomic**: One concept per flashcard
-4. **Clear**: Avoid ambiguity
-5. **Practical**: Focus on key concepts, definitions, and relationships
+3. **Hint**: Provide a subtle hint that guides thinking without revealing the answer
+4. **Memory Tips**: Create memorable mnemonics, associations, or memory techniques
+5. **Atomic**: One concept per flashcard
+6. **Clear**: Avoid ambiguity
+7. **Practical**: Focus on key concepts, definitions, and relationships
 
 Output Format:
 Return a JSON object with a "flashcards" array. Each flashcard has:
 - question: The front of the card (question/prompt)
 - answer: The back of the card (answer/explanation)
+- hint: A subtle hint to help recall (optional but recommended)
+- memories_tips: A mnemonic or memory technique to remember the concept (optional but recommended)
 
 IMPORTANT: Return ONLY valid JSON. DO NOT wrap in markdown blocks."""
 
@@ -168,6 +172,12 @@ Original Content Context:
 {context}
 
 Generate 5-8 high-quality flashcards covering the key concepts.
+For each flashcard, include:
+- A clear question
+- A concise answer (2-3 sentences)
+- A helpful hint (that doesn't give away the answer)
+- A memory tip/mnemonic to help remember the concept
+
 Return ONLY a JSON object with a 'flashcards' array."""
 
 STUDIES_NOTE_GENERATION_SYSTEM_PROMPT = """You are an expert educational content writer creating comprehensive study notes.

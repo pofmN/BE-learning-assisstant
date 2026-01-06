@@ -437,7 +437,9 @@ class CourseManagerAgent:
                         course_id=state["course_id"],
                         section_id=section_id,
                         question=fc.question,
-                        answer=fc.answer
+                        answer=fc.answer,
+                        hint=fc.hint,
+                        memories_tips=fc.memories_tips
                     )
                     self.db.add(flashcard)
             

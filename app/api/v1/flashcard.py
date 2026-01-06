@@ -74,6 +74,8 @@ def get_course_flashcards(
                     section_id=int(card.section_id) if card.section_id else None,  # type: ignore
                     question=str(card.question),  # type: ignore
                     answer=str(card.answer),  # type: ignore
+                    hint=str(card.hint) if card.hint else None,  # type: ignore
+                    memories_tips=str(card.memories_tips) if card.memories_tips else None,  # type: ignore
                     times_reviewed=times_reviewed,
                     avg_confidence=float(avg_confidence),  # type: ignore
                     next_review=next_review  # type: ignore
@@ -85,6 +87,8 @@ def get_course_flashcards(
                 section_id=int(card.section_id) if card.section_id else None,  # type: ignore
                 question=str(card.question),  # type: ignore
                 answer=str(card.answer),  # type: ignore
+                hint=str(card.hint) if card.hint else None,  # type: ignore
+                memories_tips=str(card.memories_tips) if card.memories_tips else None,  # type: ignore
                 times_reviewed=times_reviewed,
                 avg_confidence=float(avg_confidence),  # type: ignore
                 next_review=next_review  # type: ignore
@@ -131,6 +135,8 @@ def get_flashcard(
         section_id=int(card.section_id) if card.section_id else None,  # type: ignore
         question=str(card.question),  # type: ignore
         answer=str(card.answer),  # type: ignore
+        hint=str(card.hint) if card.hint else None,  # type: ignore
+        memories_tips=str(card.memories_tips) if card.memories_tips else None,  # type: ignore
         times_reviewed=times_reviewed,
         avg_confidence=float(avg_confidence),  # type: ignore
         next_review=next_review  # type: ignore

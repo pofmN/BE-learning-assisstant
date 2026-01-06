@@ -7,6 +7,8 @@ class FlashCardBase(BaseModel):
     """Schema for flashcard."""
     question: str = Field(..., description="Front of the flashcard")
     answer: str = Field(..., description="Back of the flashcard")
+    hint: Optional[str] = Field(None, description="Hint to help recall the answer")
+    memories_tips: Optional[str] = Field(None, description="Memory technique or mnemonic to remember the concept")
 
 class FlashCardList(BaseModel):
     """List of flashcards."""
@@ -17,6 +19,8 @@ class FlashCardInDB(FlashCardBase):
     id: int
     course_id: int
     section_id: Optional[int] = None
+    hint: Optional[str] = None
+    memories_tips: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -32,6 +36,8 @@ class FlashcardResponse(BaseModel):
     section_id: Optional[int]
     question: str
     answer: str
+    hint: Optional[str] = None
+    memories_tips: Optional[str] = None
     times_reviewed: int
     avg_confidence: float
     next_review: Optional[datetime]

@@ -74,6 +74,8 @@ class FlashCard(Base):
     section_id = Column(Integer, ForeignKey("course_sections.id", ondelete="CASCADE"), nullable=True)
     question = Column(Text, nullable=False)
     answer = Column(Text, nullable=False)
+    hint = Column(Text, nullable=True)
+    memories_tips = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
