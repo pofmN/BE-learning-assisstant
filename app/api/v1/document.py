@@ -101,31 +101,6 @@ class TaskQueue:
         logger.info(f'Created task {response.name} for document {document_id}')
         return response.name
 
-def process_document_background(
-    file_path: str,
-    filename: str,
-    document_id: int,
-    user_id: int,
-):
-    """
-    Background task to process a document.
-    """
-    db = SessionLocal()  # Create a new session for the background task
-    try:
-        logger.info(f"Starting background processing for document ID {document_id}")
-        processor = DocumentProcessor(db)
-        processor.process_and_store(
-            file_path=file_path,
-            filename=filename,
-            document_id=document_id,
-            user_id=user_id
-        )
-        logger.info(f"Completed background processing for document ID {document_id}")
-    except Exception as e:
-        logger.error(f"Error processing document ID {document_id} in background: {e}")
-    finally:
-        db.close()
-
 @router.post("/upload", response_model=DocumentSchema, status_code=status.HTTP_202_ACCEPTED)
 async def upload_document(
     file: UploadFile = File(...),

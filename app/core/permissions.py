@@ -123,8 +123,8 @@ def check_course_access(
     
     if public_share:
         # Check if link is expired
-        from datetime import datetime
-        if public_share.expires_at and public_share.expires_at < datetime.now():  # type: ignore
+        from datetime import datetime, timezone
+        if public_share.expires_at and public_share.expires_at < datetime.now(timezone.utc): # type: ignore
             raise HTTPException(
                 status_code=status.HTTP_410_GONE,
                 detail="This course's public share link has expired"
