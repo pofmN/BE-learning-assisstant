@@ -21,6 +21,7 @@ from app.core.config import settings
 from app.schemas.course import CourseWithAccess
 from app.models.course import CourseEnrollment
 from app.core.permissions import require_course_access, require_course_ownership
+from app.models.folder import Folder
 
 logger = logging.getLogger(__name__)
 
@@ -399,6 +400,50 @@ def list_user_courses(
             )
     
     return list(courses_dict.values())
+
+
+@router.patch("/{course_id}/move-to-folder")
+def move_course_to_folder(
+    course_id: int,
+    folder_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+) -> Any:
+    """
+    Move a course to a folder or remove it from a folder.
+    
+    Args:
+        course_id: ID of the course to move
+        folder_id: ID of the folder to move to (None to remove from folder)
+        db: Database session
+        current_user: Currently authenticated user
+    
+    Returns:
+        Updated course
+    """
+    # Only owner can move course
+    course = require_course_ownership(course_id, current_user, db)
+    
+    # If folder_id is provided, verify it exists
+    if folder_id is not None:
+        folder = db.query(Folder).filter(Folder.id == folder_id).first()
+        if not folder:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Folder with ID {folder_id} not found"
+            )
+    
+    # Update course folder
+    course.folder_id = folder_id  # type: ignore
+    db.commit()
+    db.refresh(course)
+    
+    return {
+        "message": f"Course moved to folder {folder_id}" if folder_id else "Course removed from folder",
+        "course_id": course_id,
+        "folder_id": folder_id
+    }
+
 
 @router.post("/{course_id}/modify")
 def modify_course(

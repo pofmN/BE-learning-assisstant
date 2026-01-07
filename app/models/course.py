@@ -13,6 +13,7 @@ class Course(Base):
     document_id = Column(Integer, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
+    folder_id = Column(Integer, ForeignKey("folders.id", ondelete="SET NULL"), nullable=True)
     language = Column(String, nullable=True)  # e.g., English, Vietnamese
     level = Column(String, nullable=True)  # e.g., Beginner, Intermediate, Advanced
     requirements = Column(Text, nullable=True)
@@ -23,6 +24,7 @@ class Course(Base):
 
     # Relationships
     document = relationship("Document", backref="courses")
+    folder = relationship("Folder", back_populates="courses")
     sections = relationship("CourseSection", back_populates="course", cascade="all, delete-orphan")
     quizzes = relationship("Quiz", back_populates="course", cascade="all, delete-orphan")
 
