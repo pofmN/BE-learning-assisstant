@@ -9,6 +9,9 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from authlib.integrations.starlette_client import OAuthError
+from app.services.oauth_service import OAuthService
+oauth_service = OAuthService()
 
 from app.core.config import settings
 from app.core.dependencies import get_current_active_user, get_db
@@ -165,30 +168,32 @@ def login(
 ) -> Any:
     """
     Authenticate user with secure credential verification and JWT token generation.
-
-    Args:
-        request: HTTP request for logging client information
-        db: Database session
-        form_data: OAuth2 form data containing username and password
-
-    Returns:
-        JWT access token with metadata
-
-    Raises:
-        HTTPException: If authentication fails
     """
     client_ip = request.client.host if request.client else "unknown"
     username_input = form_data.username.strip().lower()
 
-    # Single efficient query for email or username lookup
     user = db.query(User).filter(
         (User.email.ilike(username_input)) | (User.username == username_input)
     ).first()
 
-    # Use consistent error message to prevent account enumeration
     invalid_credentials_msg = "Invalid username/email or password"
 
-    if not user or not verify_password(form_data.password, user.hashed_password): # type: ignore
+    if not user:
+        logger.warning(f"Failed login attempt for '{username_input}' from IP {client_ip}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=invalid_credentials_msg,
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Check if user registered via OAuth (no password)
+    if user.oauth_provider and not user.hashed_password: # type: ignore
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"This account was created using {user.oauth_provider.title()} login. Please use '{user.oauth_provider.title()} Sign In' button."
+        )
+    
+    if not verify_password(form_data.password, user.hashed_password): # type: ignore
         logger.warning(f"Failed login attempt for '{username_input}' from IP {client_ip}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -233,6 +238,149 @@ def login(
         }
     }
 
+@router.post("/logout", status_code=status.HTTP_200_OK)
+def logout(current_user: User = Depends(get_current_active_user)) -> Any:
+    """
+    Logout endpoint placeholder. Invalidate tokens on client side.
+
+    Args:
+        current_user: Currently authenticated user from JWT token
+
+    Returns:
+        Success message
+    """
+    # Note: JWT tokens are stateless; implement token blacklisting if needed
+    logger.info(f"User '{current_user.username}' logged out")
+    return {"message": "Logout successful"}
+
+@router.get("/google/login")
+async def google_login(request: Request) -> Any:
+    """
+    Redirect user to Google's OAuth 2.0 authorization page.
+
+    Args:
+        request: HTTP request
+
+    Returns:
+        Redirect response to Google OAuth
+    """
+    google = oauth_service.get_google_client()
+    if not google:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Google OAuth client not configured"
+        )
+    redirect_uri = settings.GOOGLE_REDIRECT_URI
+    return await google.authorize_redirect(request, redirect_uri)
+
+@router.get("/google/callback", response_model=Token)
+async def google_callback(request: Request, db: Session = Depends(get_db)) -> Any:
+    """
+    Handle Google OAuth 2.0 callback and authenticate or register user.
+
+    Args:
+        request: HTTP request
+        db: Database session
+    Returns:
+        JWT access token with metadata
+    Raises:
+        HTTPException: If authentication fails
+    """
+    try:
+        google = oauth_service.get_google_client()
+        if not google:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Google OAuth client not configured"
+            )
+        token = await google.authorize_access_token(request)
+        user_info = await oauth_service.get_google_user_info(token)
+        validated_data = oauth_service.validate_oauth_user_data(user_info)
+        email = validated_data["email"]
+        oauth_id = validated_data["oauth_id"]
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to retrieve email from Google"
+            )
+        # Check if user exists
+        user = db.query(User).filter(
+            (User.email == email) |
+            ((User.oauth_provider == "google") & (User.oauth_id == oauth_id))
+        ).first()
+        
+        if user:
+            # Update existing user info if needed
+            if not user.oauth_provider: #type: ignore
+                user.oauth_provider = "google" # type: ignore
+                user.oauth_id = oauth_id # type: ignore
+
+            if not user.avatar_url: # type: ignore
+                user.avatar_url = validated_data["avatar_url"] # type: ignore
+            user.last_login = datetime.now() # type: ignore
+            db.commit()
+            db.refresh(user)
+            logger.info(f"Existing user '{user.username}' logged in via Google OAuth")
+        
+        else:
+            # Register new user
+            base_username = email.split("@")[0]
+            username = base_username
+            counter = 1
+            while db.query(User).filter(User.username == username).first():
+                username = f"{base_username}{counter}"
+                counter += 1
+            user = User(
+                email=email,
+                username=username,
+                full_name=validated_data.get("full_name"),
+                avatar_url=validated_data.get("avatar_url"),
+                oauth_provider="google",
+                oauth_id=oauth_id,
+                is_active=True,
+                hashed_password=None,
+                role="student",
+                create_at=datetime.now(),
+                last_login=datetime.now()
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+
+            user_personality = UserPersonality(user_id=user.id)
+            db.add(user_personality)
+            db.commit()
+
+            logger.info(f"New user '{user.username}' registered via Google OAuth")
+        
+        # Generate JWT token
+        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            subject=str(user.id),
+            expires_delta=access_token_expires,
+            extra_claims={
+                "scope": "user",
+                "username": user.username,
+                "role": user.role,
+            }
+        )
+
+        frontend_redirect_url = f"{settings.FRONTEND_URL}/oauth-success?token={access_token}"
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(frontend_redirect_url)
+    except OAuthError as e:
+        logger.error(f"Google OAuth error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Google OAuth authentication failed"
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error during Google OAuth callback: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error during Google OAuth authentication"
+        )
+    
 
 @router.get("/me", response_model=UserSchema)
 def read_current_user(current_user: User = Depends(get_current_active_user)) -> Any:

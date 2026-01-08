@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     GCS_BUCKET_NAME: str = ""
     GCS_PROJECT_ID: str = ""
     GCS_CREDENTIALS_PATH: str = ""
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GOOGLE_REDIRECT_URI: str = ""
     ALLOWED_FILE_EXTENSIONS: List[str] = [".pdf", ".docx", ".txt", ".pptx"]
     MAX_UPLOAD_SIZE: int = 10485760
     ALLOWED_IMAGE_EXTENSIONS: List[str] = [".jpg", ".jpeg", ".png"]
