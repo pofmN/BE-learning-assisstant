@@ -249,10 +249,11 @@ def read_current_user(current_user: User = Depends(get_current_active_user)) -> 
 
 
 @router.post("/forgot-password")
-def forgot_password(
+async def forgot_password(
     request: Request,
     email: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    background_tasks: BackgroundTasks = BackgroundTasks()
 ) -> Any:
     """
     Initiate password reset process by sending reset email.
@@ -261,6 +262,7 @@ def forgot_password(
         request: HTTP request for logging
         email: User's email address
         db: Database session
+        background_tasks: Background tasks for sending email
 
     Returns:
         Success message
@@ -296,8 +298,14 @@ def forgot_password(
 
     # Send reset email
     try:
-        # reset_link = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
-        # send_reset_email(user.email, reset_link)
+        reset_link = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
+        await MailService().send_message_background(
+        background_tasks,
+        subject="Verify your email",
+        recipients=[user.email], # type: ignore
+        template_name="verify_email.html",
+        context={"username": user.username, "verify_url": reset_link}
+    )
         logger.info(f"Password reset email sent to {email} from IP {client_ip}")
     except Exception as e:
         logger.error(f"Failed to send reset email to {email}: {str(e)}")
