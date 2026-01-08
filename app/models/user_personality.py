@@ -16,4 +16,4 @@ class UserPersonality(Base):
     school_name = Column(String, nullable=True)
     memories = Column(String, nullable=True)
     # Relationship to User
-    user = relationship("User", backref="personality")
+    user = relationship("User", back_populates="personality")

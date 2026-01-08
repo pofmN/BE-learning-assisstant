@@ -58,19 +58,22 @@ async def register(user_in: UserCreate, db: Session = Depends(get_db), backgroun
     hashed_password = get_password_hash(user_in.password)
     user = User(
         email=user_in.email.lower().strip(),
-        username=user_in.username.strip(), # type: ignore
+        username=user_in.username.strip() if user_in.username else None, # type: ignore
         full_name=user_in.full_name.strip() if user_in.full_name else None,
         hashed_password=hashed_password,
         role="student",
         is_active=False,
     )
     db.add(user)
+    db.commit()
+    db.refresh(user)
+    
+    # Create user personality after user is committed (so user.id exists)
     user_personality = UserPersonality(user_id=user.id)
     db.add(user_personality)
     db.commit()
-    db.refresh(user)
     token = create_verification_token(str(user.id), user.email) # type: ignore
-    verify_url = f"{settings.FRONTEND_URL}/verify-email?token={token}"
+    verify_url = f"{settings.FRONTEND_URL}/auth/verify?token={token}"
     await MailService().send_message_background(
         background_tasks,
         subject="Verify your email",
