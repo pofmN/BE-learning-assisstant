@@ -1,6 +1,7 @@
 from typing import List, Optional, Any
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status, Request
 from sqlalchemy import literal
+from sqlalchemy.sql import func, or_
 from sqlalchemy.orm import Session
 from app.core.dependencies import get_current_active_user, get_current_user_optional
 from app.db.base import get_db, SessionLocal
@@ -483,3 +484,90 @@ def modify_course(
         status="completed",
         message="Course modification completed successfully."
     )
+
+@router.get("/search", response_model=List[CourseWithAccess])
+def search_courses(
+    query: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+) -> Any:
+    """
+    Search courses by title or description.
+    Only shows courses the user owns or is enrolled in.
+    
+    Args:
+        query: Search query string
+        db: Database session
+        current_user: Currently authenticated user
+    Returns:
+        List of courses matching the search query that user can access
+    """
+    query = query.strip()
+    search_pattern = f"%{query}%"
+
+    # Query courses user can access (owned + enrolled)
+    results = (
+        db.query(
+            Course,
+            Document.owner_id,
+            CourseEnrollment.enrolled_via,
+            CourseEnrollment.enrolled_at
+        )
+        .join(Document, Course.document_id == Document.id)
+        .outerjoin(
+            CourseEnrollment,
+            (Course.id == CourseEnrollment.course_id) & 
+            (CourseEnrollment.user_id == current_user.id)
+        )
+        .filter(
+            Course.status == "completed",
+            # User must own OR be enrolled
+            or_(
+                Document.owner_id == current_user.id,
+                CourseEnrollment.user_id == current_user.id
+            ),
+            # Match query in title or description (case-insensitive)
+            or_(
+                Course.title.ilike(search_pattern),
+                Course.description.ilike(search_pattern)
+            )
+        )
+        .order_by(
+            # Prioritize title matches over description matches
+            func.lower(Course.title).like(func.lower(search_pattern)).desc(),
+            Course.created_at.desc()
+        )
+        .limit(10)
+        .all()
+    )
+    
+    # Build response with access info
+    courses = []
+    seen_ids = set()
+    
+    for course, owner_id, enrolled_via, enrolled_at in results:
+        if course.id in seen_ids:
+            continue
+        seen_ids.add(course.id)
+        
+        is_owner = (owner_id == current_user.id)
+        
+        courses.append(CourseWithAccess(
+            id=course.id,
+            document_id=course.document_id,
+            title=course.title,
+            description=course.description,
+            language=course.language,
+            level=course.level,
+            requirements=course.requirements,
+            question_type=course.question_type,
+            status=course.status,
+            created_at=course.created_at,
+            updated_at=course.updated_at,
+            is_owner=is_owner,
+            enrolled_via=enrolled_via if not is_owner else None,
+            enrolled_at=enrolled_at if not is_owner else None
+        ))
+    
+    logger.info(f"Search '{query}' returned {len(courses)} results")
+    return courses
