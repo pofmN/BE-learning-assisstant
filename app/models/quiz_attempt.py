@@ -36,7 +36,7 @@ class QuizSession(Base):
     
     # Relationships
     user = relationship("User", backref="quiz_sessions")
-    course = relationship("Course", backref="quiz_sessions")
+    course = relationship("Course", back_populates="quiz_sessions")
     section = relationship("CourseSection", backref="quiz_sessions")
     attempts = relationship("QuizAttempt", back_populates="session", cascade="all, delete-orphan")
 
@@ -101,5 +101,5 @@ class StudySession(Base):
     
     # Relationships
     user = relationship("User", backref="study_sessions")
-    course = relationship("Course", backref="study_sessions")
+    course = relationship("Course", back_populates="study_sessions")
     section = relationship("CourseSection", backref="study_sessions")

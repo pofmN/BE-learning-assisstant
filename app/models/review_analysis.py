@@ -55,5 +55,5 @@ class ReviewQuizAnalysis(Base):
     
     # Relationships
     user = relationship("User", backref="review_analyses")
-    course = relationship("Course", backref="review_analyses")
+    course = relationship("Course", back_populates="review_analyses")
     review_session = relationship("QuizSession", backref="review_analysis")

@@ -32,10 +32,13 @@ class Course(Base):
     sections = relationship("CourseSection", back_populates="course", cascade="all, delete-orphan")
     quizzes = relationship("Quiz", back_populates="course", cascade="all, delete-orphan")
     shares = relationship("CourseShare", back_populates="course", cascade="all, delete-orphan")
-    enrollments = relationship("CourseEnrollment", back_populates="course", cascade="all, delete-orphan")  # ADD THIS
-    flashcards = relationship("FlashCard", back_populates="course", cascade="all, delete-orphan")  # ADD
-    studies_notes = relationship("StudiesNote", back_populates="course", cascade="all, delete-orphan")  # ADD
-
+    enrollments = relationship("CourseEnrollment", back_populates="course", cascade="all, delete-orphan")
+    flashcards = relationship("FlashCard", back_populates="course", cascade="all, delete-orphan")
+    studies_notes = relationship("StudiesNote", back_populates="course", cascade="all, delete-orphan")
+    quiz_sessions = relationship("QuizSession", back_populates="course", cascade="all, delete-orphan")  # ADD
+    study_sessions = relationship("StudySession", back_populates="course", cascade="all, delete-orphan")  # ADD
+    review_analyses = relationship("ReviewQuizAnalysis", back_populates="course", cascade="all, delete-orphan")  # ADD
+    
 class CourseSection(Base):
     """Course section model for organizing course content."""
 
