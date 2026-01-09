@@ -150,6 +150,10 @@ def update_user_personality(
         
         # Update fields
         personality_record.date_of_birth = updated_personality.date_of_birth #type: ignore
+        personality_record.timezone = updated_personality.timezone #type: ignore
+        personality_record.about_me = updated_personality.about_me #type: ignore
+        personality_record.school_name = updated_personality.school_name #type: ignore
+        personality_record.memories = updated_personality.memories #type: ignore
         
         db.commit()
         db.refresh(personality_record)
