@@ -83,6 +83,9 @@ class DocumentProcessor:
             if not text.strip():
                 raise ValueError(f"No text content extracted from '{filename}'")
             
+            # SANITIZE: Remove NULL bytes (PostgreSQL doesn't allow them)
+            text = text.replace('\x00', '')
+            
             # Step 2: Split text into chunks
             logger.info(f"Chunking text from '{filename}'")
             chunks = self.chunker.chunk_text(text)
@@ -109,12 +112,12 @@ class DocumentProcessor:
                 doc.extracted_text = text # type: ignore
                 self.db.commit()
 
-                # Add chunks with cluster IDs
+                # Add chunks with cluster IDs (also sanitize chunk text)
                 for idx, (chunk_text, embedding) in enumerate(zip(chunks, embeddings)):
                     cluster_id = cluster_ids[idx] if cluster_ids else None
                     chunk = DocumentChunk(
                         document_id=doc.id,
-                        chunk_text=chunk_text,
+                        chunk_text=chunk_text.replace('\x00', ''),  # Sanitize chunks too
                         chunk_index=idx,
                         cluster_id=cluster_id,
                         token_count=len(chunk_text.split()),
@@ -132,6 +135,8 @@ class DocumentProcessor:
         except Exception as e:
             logger.error(f"Failed to process document '{filename}': {str(e)}")
             try:
+                # IMPORTANT: Rollback before updating status
+                self.db.rollback()
                 doc = self.db.query(Document).filter(Document.id == document_id).first()
                 if doc:
                     doc.status = "failed"  # type: ignore
