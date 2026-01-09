@@ -5,7 +5,7 @@ import logging
 import json
 from typing import List, Dict
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from langchain_core.messages import SystemMessage, HumanMessage
 
@@ -21,17 +21,46 @@ from app.core.agents.review.prompts import (
 logger = logging.getLogger(__name__)
 
 
+class RecommendationItem(BaseModel):
+    """Individual recommendation item schema."""
+    priority: str = Field(..., description="Priority level: high, medium, or low")
+    topic: str = Field(..., description="The topic this recommendation is about")
+    suggestion: str = Field(..., description="Specific actionable suggestion")
+    reason: str = Field(..., description="Why this is important")
+    study_resources: List[str] = Field(default_factory=list, description="Recommended study resources")
+    
+    class Config:
+        extra = "forbid"
+
+
+class NextStepsItem(BaseModel):
+    """Next steps schema."""
+    weak_topics: List[str] = Field(default_factory=list, description="Topics that need more work")
+    suggested_study_time: str = Field(..., description="Recommended study time")
+    review_again_after: str = Field(..., description="When to take next review")
+    confidence_level: str = Field(..., description="Overall confidence level")
+    
+    class Config:
+        extra = "forbid"
+
+
 class RecommendationOutput(BaseModel):
     """Schema for LLM recommendation output."""
-    recommendations: List[Dict]
-    next_steps: Dict
+    recommendations: List[RecommendationItem]
+    next_steps: NextStepsItem
     motivation_message: str
+    
+    class Config:
+        extra = "forbid"  # Required for OpenAI structured output
 
 
 class GradeOutput(BaseModel):
     """Schema for grade assessment output."""
     grade: str
     assessment: str
+    
+    class Config:
+        extra = "forbid"  # Required for OpenAI structured output
 
 
 class RecommendationGenerator:
@@ -106,20 +135,20 @@ class RecommendationGenerator:
             recommendations = []
             for rec in result.recommendations:  # type: ignore
                 recommendations.append(Recommendation(
-                    priority=rec.get("priority", "medium"),
-                    topic=rec.get("topic", ""),
-                    suggestion=rec.get("suggestion", ""),
-                    reason=rec.get("reason", ""),
-                    study_resources=rec.get("study_resources", [])
+                    priority=rec.priority,
+                    topic=rec.topic,
+                    suggestion=rec.suggestion,
+                    reason=rec.reason,
+                    study_resources=rec.study_resources
                 ))
 
             # Format next steps
             next_steps_data = result.next_steps  # type: ignore
             next_steps = NextSteps(
-                weak_topics=next_steps_data.get("weak_topics", []),
-                suggested_study_time=next_steps_data.get("suggested_study_time", "2-3 hours"),
-                review_again_after=next_steps_data.get("review_again_after", "7 days"),
-                confidence_level=next_steps_data.get("confidence_level", "medium")
+                weak_topics=next_steps_data.weak_topics,
+                suggested_study_time=next_steps_data.suggested_study_time,
+                review_again_after=next_steps_data.review_again_after,
+                confidence_level=next_steps_data.confidence_level
             )
 
             logger.info(f"Generated {len(recommendations)} recommendations for course {course_id}")

@@ -3,8 +3,8 @@ Dependency injection for FastAPI endpoints.
 """
 from typing import Generator, Optional, cast
 
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends, HTTPException, status, Request
+from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 
@@ -14,6 +14,7 @@ from app.db.base import SessionLocal
 from app.models.user import User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_PREFIX}/auth/login")
+oauth2_scheme_optional = HTTPBearer(auto_error=False)  # Won't raise 401 if missing
 
 
 def get_db() -> Generator:
@@ -87,7 +88,7 @@ def get_current_active_user(current_user: User = Depends(get_current_user)) -> U
 
 def get_current_user_optional(
     db: Session = Depends(get_db),
-    token: Optional[str] = Depends(oauth2_scheme)
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(oauth2_scheme_optional)
 ) -> Optional[User]:
     """
     Get current user if authenticated, otherwise return None.
@@ -101,13 +102,15 @@ def get_current_user_optional(
 
     Args:
         db: Database session
-        token: Optional JWT token
+        credentials: Optional HTTP Bearer credentials
 
     Returns:
         User object if authenticated, None otherwise
     """
-    if token is None:
+    if credentials is None:
         return None
+    
+    token = credentials.credentials
 
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
