@@ -601,3 +601,21 @@ def search_courses(
     
     logger.info(f"Search '{query}' returned {len(courses)} results")
     return courses
+
+@router.delete("/{course_id}/delete", status_code=status.HTTP_204_NO_CONTENT)
+def delete_course(
+    course_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Delete a course. Only the owner can delete their course.
+    """
+    # Only owner can delete course
+    course = require_course_ownership(course_id, current_user, db)
+    
+    # Delete course
+    db.delete(course)
+    db.commit()
+    
+    return None
