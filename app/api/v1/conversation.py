@@ -180,15 +180,6 @@ async def send_message(
             document_ids=document_ids if document_ids else None
         )
         
-        # Update conversation title from first message if needed
-        if str(conversation.title) == "New Conversation":  # type: ignore
-            # Use first few words of message as title
-            title_words = request.message.split()[:8]
-            new_title = " ".join(title_words)
-            if len(request.message.split()) > 8:
-                new_title += "..."
-            conversation.title = new_title  # type: ignore
-            db.commit()
         
         return MessageResponse(
             conversation_id=conversation_id,
@@ -279,6 +270,48 @@ async def get_conversation_history(
             detail="Failed to get conversation history"
         )
 
+@router.post("/{conversation_id}/edit", status_code=status.HTTP_200_OK)
+def edit_conversation(
+    conversation_id: int,
+    new_title: Optional[str] = None,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Edit conversation details such as title.
+    """
+    try:
+        # Verify conversation exists and belongs to user
+        conversation = db.query(Conversation).filter(
+            Conversation.id == conversation_id,
+            Conversation.user_id == current_user.id
+        ).first()
+        
+        if not conversation:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Conversation not found"
+            )
+        
+        # Update title if provided
+        if new_title:
+            conversation.title = new_title  # type: ignore
+            conversation.updated_at = datetime.now(timezone.utc)  # type: ignore
+            db.commit()
+        
+        logger.info(f"Edited conversation {conversation_id} for user {current_user.id}")
+        
+        return {"message": "Conversation updated successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error editing conversation: {e}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to edit conversation"
+        )
 
 @router.get("/list", response_model=List[ConversationResponse])
 async def list_conversations(

@@ -444,7 +444,7 @@ class QAChatAgent:
         messages: List[ConversationMessage],
         previous_summary: Optional[str] = None
     ):
-        """Generate and save conversation summary (combines with previous summary if exists)."""
+        """Generate and save conversation summary + update title (efficient single LLM call)."""
         try:
             # Format messages for summarization
             message_texts = []
@@ -454,6 +454,13 @@ class QAChatAgent:
             
             messages_str = "\n\n".join(message_texts)
             
+            # Check if this is the first summary (to generate title)
+            conversation = self.db.query(Conversation).filter(
+                Conversation.id == conversation_id
+            ).first()
+            
+            needs_title = not conversation.title or conversation.title == "New Conversation" # type: ignore
+            
             # Build prompt - include previous summary if exists
             if previous_summary:
                 prompt = f"""Previous Summary:
@@ -462,18 +469,59 @@ class QAChatAgent:
 New Messages:
 {messages_str}
 
-Create a new summary that combines the previous summary with these new messages. Keep only the main points and important information."""
+Create a new summary that combines the previous summary with these new messages. Keep only the main points and important information.
+
+Format your response as JSON:
+{{
+    "summary": "your summary here"
+}}"""
             else:
-                prompt = SUMMARIZATION_USER_PROMPT_TEMPLATE.format(messages=messages_str)
+                # First summary - also generate title
+                if needs_title: # type: ignore
+                    prompt = f"""Conversation Messages:
+{messages_str}
+
+Generate both a conversation title and summary.
+
+Requirements:
+1. Title: Create a concise, descriptive title (3-7 words) that captures the main topic. Use the student's question language.
+2. Summary: Summarize the key points, questions asked, and information provided (2-4 sentences).
+
+Format your response as JSON:
+{{
+    "title": "your title here",
+    "summary": "your summary here"
+}}"""
+                else:
+                    prompt = SUMMARIZATION_USER_PROMPT_TEMPLATE.format(messages=messages_str) + """
+
+Format your response as JSON:
+{
+    "summary": "your summary here"
+}"""
             
-            # Generate summary
+            # Generate summary (and title if first time)
+            summary_llm = LLMFactory.create_llm(
+                temperature=0.5,
+                json_mode=True
+            )
             llm_messages = [
-                SystemMessage(content=SUMMARIZATION_SYSTEM_PROMPT),
+                SystemMessage(content=SUMMARIZATION_SYSTEM_PROMPT + "\n\nYou must respond with valid JSON only."),
                 HumanMessage(content=prompt)
             ]
             
-            result = self.summary_llm.invoke(llm_messages)
-            summary_text = result.summary if hasattr(result, 'summary') else result.get('summary', '')  # type: ignore
+            result = summary_llm.invoke(llm_messages)
+            response_text = result.content if hasattr(result, 'content') else str(result)
+            
+            # Parse JSON response
+            import json
+            response_data = json.loads(response_text) # type: ignore
+            summary_text = response_data.get('summary', '')
+            
+            # Update conversation title if this is first summary and title was generated
+            if needs_title and 'title' in response_data: # type: ignore
+                conversation.title = response_data['title'][:255]  # Limit to column size # type: ignore
+                logger.info(f"Generated title for conversation {conversation_id}: {conversation.title}") # type: ignore
             
             # Save summary
             summary = ConversationSummary(
