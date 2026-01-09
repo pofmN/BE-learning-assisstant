@@ -98,7 +98,7 @@ Create similar questions with:
 - Clear, accurate answers"""
 
 
-QUIZ_GENERATION_USER_PROMPT = """Create {count} NEW quiz questions based on these examples:
+QUIZ_GENERATION_USER_PROMPT = """Create EXACTLY {count} NEW quiz questions no less no more based on these examples:
 
 {examples}
 

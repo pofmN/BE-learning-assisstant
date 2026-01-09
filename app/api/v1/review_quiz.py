@@ -152,7 +152,7 @@ def generate_review_quiz(
             course_id=course_id,
             section_id=None,  # Final review covers entire course
             session_type="final_review",
-            generated_questions=generated_questions,  # No longer storing in JSON
+            generated_questions=json.dumps(generated_questions),
             total_questions=len(generated_questions),
             status="in_progress"
         )
