@@ -36,3 +36,21 @@ class FolderWithCourseCount(FolderInDB):
     
     class Config:
         from_attributes = True
+
+class CourseSummary(BaseModel):
+    """Schema for course summary within a folder."""
+    id: int
+    title: str
+    description: Optional[str] = None
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class FolderWithCourses(FolderInDB):
+    """Folder schema with list of courses."""
+    courses: List[CourseSummary] = []
+    
+    class Config:
+        from_attributes = True

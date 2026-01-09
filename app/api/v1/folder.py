@@ -8,7 +8,7 @@ from app.db.base import get_db
 from app.models.folder import Folder
 from app.models.course import Course
 from app.models.user import User
-from app.schemas.folder import FolderCreate, FolderUpdate, FolderInDB, FolderWithCourseCount
+from app.schemas.folder import FolderCreate, FolderUpdate, FolderInDB, FolderWithCourseCount, FolderWithCourses, CourseSummary
 from app.core.dependencies import get_current_active_user
 
 router = APIRouter()
@@ -32,7 +32,7 @@ def create_folder(
     return db_folder
 
 
-@router.get("/", response_model=List[FolderWithCourseCount])
+@router.get("/{folder_id}/list-folders", response_model=List[FolderWithCourseCount])
 def list_folders(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
@@ -63,7 +63,7 @@ def list_folders(
     return result
 
 
-@router.get("/{folder_id}", response_model=FolderWithCourseCount)
+@router.get("/{folder_id}/list-course", response_model=FolderWithCourses)
 def get_folder(
     folder_id: int,
     db: Session = Depends(get_db),
@@ -78,22 +78,17 @@ def get_folder(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Folder with ID {folder_id} not found"
         )
-    
-    # Get course count
-    course_count = db.query(func.count(Course.id)).filter(
-        Course.folder_id == folder_id
-    ).scalar()
-    
-    return FolderWithCourseCount(
-        id=folder.id,  # type: ignore
-        name=folder.name,  # type: ignore
-        created_at=folder.created_at,  # type: ignore
-        updated_at=folder.updated_at,  # type: ignore
-        course_count=course_count or 0
+    courses = db.query(Course).filter(Course.folder_id == folder_id).all()
+
+    return FolderWithCourses(
+        id=folder.id, # type: ignore
+        name=folder.name, # type: ignore
+        created_at=folder.created_at, # type: ignore
+        updated_at=folder.updated_at, # type: ignore
+        courses=[CourseSummary.model_validate(course) for course in courses]
     )
 
-
-@router.put("/{folder_id}", response_model=FolderInDB)
+@router.put("/{folder_id}/rename", response_model=FolderInDB)
 def update_folder(
     folder_id: int,
     folder_update: FolderUpdate,
