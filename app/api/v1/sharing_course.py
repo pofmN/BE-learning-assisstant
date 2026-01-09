@@ -170,9 +170,28 @@ def access_shared_course(
             detail="Login required to access this course. Please sign in to continue.",
             headers={"WWW-Authenticate": "Bearer"}
         )
-    
-    # Step 4: Auto-enroll logged-in users
-    if current_user:
+
+    # Step 3.5: Check if logged-in user is authorized for private link
+    if not share.is_public and current_user:  # type: ignore
+        # Check if user is already enrolled or is the owner
+        is_owner = db.query(Course).join(Document).filter(
+            Course.id == share.course_id,  # type: ignore
+            Document.user_id == current_user.id
+        ).first() is not None
+        
+        is_enrolled = db.query(CourseEnrollment).filter(
+            CourseEnrollment.user_id == current_user.id,
+            CourseEnrollment.course_id == share.course_id  # type: ignore
+        ).first() is not None
+        
+        if not is_owner and not is_enrolled:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to access this private course. Please contact the course owner for access."
+            )
+
+    # Step 4: Auto-enroll logged-in users (ONLY FOR PUBLIC LINKS)
+    if current_user and share.is_public:  # type: ignore - Add is_public check
         # Check if already enrolled
         existing_enrollment = db.query(CourseEnrollment).filter(
             CourseEnrollment.user_id == current_user.id,
