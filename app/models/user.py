@@ -40,6 +40,7 @@ class User(Base):
     # Add to User model
     conversations = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")
     personality = relationship("UserPersonality", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    folders = relationship("Folder", back_populates="user", cascade="all, delete-orphan")
 
 class PasswordResetToken(Base):
     """Password reset token model."""

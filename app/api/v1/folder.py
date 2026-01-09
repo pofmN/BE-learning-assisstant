@@ -24,7 +24,10 @@ def create_folder(
     Create a new folder to organize courses.
     """
     # Create folder
-    db_folder = Folder(name=folder.name)
+    db_folder = Folder(
+        name=folder.name,
+        user_id=current_user.id
+    )
     db.add(db_folder)
     db.commit()
     db.refresh(db_folder)
@@ -32,7 +35,7 @@ def create_folder(
     return db_folder
 
 
-@router.get("/{folder_id}/list-folders", response_model=List[FolderWithCourseCount])
+@router.get("/list-folders", response_model=List[FolderWithCourseCount])
 def list_folders(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
@@ -41,24 +44,17 @@ def list_folders(
     Get all folders with course counts.
     """
     # Query folders with course count
-    folders = db.query(
-        Folder,
-        func.count(Course.id).label("course_count")
-    ).outerjoin(
-        Course, Folder.id == Course.folder_id
-    ).group_by(Folder.id).all()
-    
-    # Convert to response format
+    folders = db.query(Folder).filter(Folder.user_id == current_user.id).all()
     result = []
-    for folder, course_count in folders:
-        folder_dict = {
-            "id": folder.id,
-            "name": folder.name,
-            "created_at": folder.created_at,
-            "updated_at": folder.updated_at,
-            "course_count": course_count
-        }
-        result.append(FolderWithCourseCount(**folder_dict))
+    for folder in folders:
+        course_count = db.query(func.count(Course.id)).filter(Course.folder_id == folder.id).scalar()
+        result.append(FolderWithCourseCount(
+            id=folder.id,  # type: ignore
+            name=folder.name,  # type: ignore
+            created_at=folder.created_at,  # type: ignore
+            updated_at=folder.updated_at,  # type: ignore
+            course_count=course_count or 0
+        ))
     
     return result
 
