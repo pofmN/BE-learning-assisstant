@@ -209,6 +209,60 @@ def access_shared_course(
     
     return course
 
+@router.patch("/{course_id}/shares/{share_id}", response_model=CourseShareResponse)
+def update_share_link(
+    course_id: int,
+    share_id: int,
+    update_data: CourseShareCreate,  # Reuse same schema
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+) -> Any:
+    """
+    Update share link settings (owner only).
+    
+    Allows changing:
+    - is_public: Switch between public/private
+    - expires_in_days: Extend or shorten expiration, null or remove this field for case no expiration.
+    
+    Note: Changing is_public does NOT affect already-enrolled users.
+    They retain access via enrollment table, not share link.
+    """
+    course = require_course_ownership(course_id, current_user, db)
+    
+    share = db.query(CourseShare).filter(
+        CourseShare.id == share_id,
+        CourseShare.course_id == course_id
+    ).first()
+    
+    if not share:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Share link not found")
+    
+    # Update fields
+    share.is_public = update_data.is_public  # type: ignore
+    
+    if update_data.expires_in_days:
+        share.expires_at = datetime.now(timezone.utc) + timedelta(days=update_data.expires_in_days)  # type: ignore
+    else:
+        share.expires_at = None  # type: ignore
+    
+    db.commit()
+    db.refresh(share)
+    
+    base_url = settings.FRONTEND_URL or "http://localhost:3000"
+    share_url = f"{base_url}/courses/shared/{share.share_token}"  # type: ignore
+    
+    logger.info(f"User {current_user.id} updated share link {share_id} for course {course_id}")
+    
+    return CourseShareResponse(
+        id=share.id,  # type: ignore
+        course_id=share.course_id,  # type: ignore
+        share_token=share.share_token,  # type: ignore
+        share_url=share_url,
+        is_public=share.is_public,  # type: ignore
+        expires_at=share.expires_at,  # type: ignore
+        created_at=share.created_at  # type: ignore
+    )
+
 
 @router.get("/{course_id}/shares", response_model=List[CourseShareList])
 def list_course_shares(
@@ -306,3 +360,31 @@ def delete_share_link(
     db.commit()
     
     logger.info(f"User {current_user.id} deleted share link {share_id} for course {course_id}")
+
+@router.delete("/{course_id}/enrollments/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def revoke_enrollment(
+    course_id: int,
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+) -> None:
+    """
+    Revoke a user's enrollment (owner only).
+    
+    Use case: Remove users who enrolled via public link
+    before you changed it to private.
+    """
+    course = require_course_ownership(course_id, current_user, db)
+    
+    enrollment = db.query(CourseEnrollment).filter(
+        CourseEnrollment.course_id == course_id,
+        CourseEnrollment.user_id == user_id
+    ).first()
+    
+    if not enrollment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Enrollment not found")
+    
+    db.delete(enrollment)
+    db.commit()
+    
+    logger.info(f"User {current_user.id} revoked enrollment for user {user_id} in course {course_id}")

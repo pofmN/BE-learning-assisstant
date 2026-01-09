@@ -260,7 +260,7 @@ class CourseShareCreate(BaseModel):
     
     Fields:
     - is_public: Allow anonymous viewing (default: True)
-    - expires_in_days: Optional expiration (None = never expires)
+    - expires_in_days: Optional expiration (0 or None = never expires)
     """
     is_public: bool = Field(
         default=True,
@@ -268,11 +268,10 @@ class CourseShareCreate(BaseModel):
     )
     expires_in_days: Optional[int] = Field(
         default=None,
-        description="Number of days until link expires. None means never expires.",
-        ge=1,  # Must be at least 1 day
+        description="Number of days until link expires. 0 or None means never expires.",
+        ge=0,  # Allow 0 for "never expires"
         le=365  # Max 1 year
     )
-
 
 class CourseShareResponse(BaseModel):
     """
