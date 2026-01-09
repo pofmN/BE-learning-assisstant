@@ -31,7 +31,10 @@ class Course(Base):
     folder = relationship("Folder", back_populates="courses")
     sections = relationship("CourseSection", back_populates="course", cascade="all, delete-orphan")
     quizzes = relationship("Quiz", back_populates="course", cascade="all, delete-orphan")
-
+    shares = relationship("CourseShare", back_populates="course", cascade="all, delete-orphan")
+    enrollments = relationship("CourseEnrollment", back_populates="course", cascade="all, delete-orphan")  # ADD THIS
+    flashcards = relationship("FlashCard", back_populates="course", cascade="all, delete-orphan")  # ADD
+    studies_notes = relationship("StudiesNote", back_populates="course", cascade="all, delete-orphan")  # ADD
 
 class CourseSection(Base):
     """Course section model for organizing course content."""
@@ -87,7 +90,7 @@ class FlashCard(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
-    course = relationship("Course", backref="flashcards")
+    course = relationship("Course", back_populates="flashcards")
     section = relationship("CourseSection", backref="flashcards")
 
 class StudiesNote(Base):
@@ -103,7 +106,7 @@ class StudiesNote(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
-    course = relationship("Course", backref="studies_notes")
+    course = relationship("Course", back_populates="studies_notes")
     section = relationship("CourseSection", backref="studies_notes")
 
 
@@ -138,7 +141,7 @@ class CourseShare(Base):
     expires_at = Column(DateTime(timezone=True), nullable=True)
     
     # Relationships
-    course = relationship("Course", backref="shares")
+    course = relationship("Course", back_populates="shares")
     creator = relationship("User", foreign_keys=[created_by])
 
 
@@ -179,4 +182,4 @@ class CourseEnrollment(Base):
     
     # Relationships
     user = relationship("User", backref="course_enrollments")
-    course = relationship("Course", backref="enrollments")
+    course = relationship("Course", back_populates="enrollments")

@@ -89,42 +89,66 @@ Return JSON:
 
 # ============= Quiz Generation Prompts =============
 
+# ============= Quiz Generation Prompts =============
+
 QUIZ_GENERATION_SYSTEM_PROMPT = """You are an expert quiz creator. Generate new quiz questions based on the provided examples.
 
-Create similar questions with:
-- Same question types and structure
-- Similar difficulty levels
-- Different wording and content
-- Clear, accurate answers"""
+Output must be a valid JSON object with a 'questions' key containing a list of quiz objects.
 
+Each quiz object MUST have the following structure:
 
-QUIZ_GENERATION_USER_PROMPT = """Create EXACTLY {count} NEW quiz questions no less no more based on these examples:
+For Multiple Choice questions:
+{{
+  "question": "The question text",
+  "question_type": "multiple_choice",
+  "question_data": {{
+    "options": [{{"id": "A", "text": "Option A"}}, {{"id": "B", "text": "Option B"}}, ...],
+    "correct_answer_id": "A",
+    "shuffle": true
+  }},
+  "explanation": "Explanation of why the answer is correct",
+  "difficulty": "easy" | "medium" | "hard"
+}}
 
-{examples}
+For True/False questions:
+{{
+  "question": "The question text",
+  "question_type": "true_false",
+  "question_data": {{
+    "statement": "The statement to evaluate",
+    "correct_answer": true | false
+  }},
+  "explanation": "Explanation of the answer",
+  "difficulty": "easy" | "medium" | "hard"
+}}
+
+For Matching questions:
+{{
+  "question": "The question text",
+  "question_type": "matching",
+  "question_data": {{
+    "left_side": [{{"id": "L1", "text": "Term 1"}}, {{"id": "L2", "text": "Term 2"}}],
+    "right_side": [{{"id": "R1", "text": "Definition 1"}}, {{"id": "R2", "text": "Definition 2"}}],
+    "correct_matches": {{"L1": "R1", "L2": "R2"}},
+    "shuffle_right_side": true
+  }},
+  "explanation": "Explanation of the matches",
+  "difficulty": "easy" | "medium" | "hard"
+}}
 
 Requirements:
-- Generate exactly {count} questions
-- Match the question types from examples (multiple_choice, true_false, matching, short_answer)
+- Match the question types from examples
 - Keep similar difficulty levels
 - Create UNIQUE questions (not copies of examples)
 - Include correct answers and explanations
 
-Return JSON array:
-```json
-[
-  {{
-    "question": "Your question text",
-    "question_type": "multiple_choice|true_false|matching|short_answer",
-    "question_data": {{
-      // For multiple_choice: {{"options": [{{...}}], "correct_answer": "option_id"}}
-      // For true_false: {{"correct_answer": true/false}}
-      // For matching: {{"terms": [...], "definitions": [...], "correct_matches": {{...}}}}
-      // For short_answer: {{"correct_answer": "text", "acceptable_answers": [...]}}
-    }},
-    "difficulty": "easy|medium|hard",
-    "explanation": "Why this answer is correct"
-  }}
-]
-```
+IMPORTANT: Return ONLY the raw JSON object. DO NOT wrap it in markdown code blocks or any other text. **JUST RETURN THE JSON.**"""
 
-Return ONLY the JSON array."""
+
+QUIZ_GENERATION_USER_PROMPT = """Create EXACTLY {count} NEW quiz questions based on these examples:
+
+{examples}
+
+Generate exactly {count} questions matching the formats above.
+
+Return ONLY a JSON object with a 'questions' key containing the array of quiz objects."""
