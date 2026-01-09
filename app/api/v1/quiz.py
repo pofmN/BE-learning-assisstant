@@ -290,44 +290,48 @@ def get_session_questions(
     if not session:
         raise HTTPException(status_code=404, detail="Quiz session not found")
     
-    # Check if this is a final_review with generated questions
-    if session.session_type == "final_review" and session.generated_questions:  # type: ignore
-        try:
-            generated_questions = json.loads(session.generated_questions)  # type: ignore
-            
-            # Return generated questions without correct answers
-            questions_for_user = []
-            for i, q in enumerate(generated_questions):
-                question_data = dict(q.get("question_data", {}))
-                
-                # Remove correct answer from question_data
-                if "correct_answer" in question_data:
-                    del question_data["correct_answer"]
-                if "correct_matches" in question_data:
-                    del question_data["correct_matches"]
-                if "acceptable_answers" in question_data:
-                    del question_data["acceptable_answers"]
-                
-                questions_for_user.append({
-                    "quiz_id": i,  # Use index as temporary quiz_id
-                    "question": q.get("question"),
-                    "question_type": q.get("question_type"),
-                    "question_data": question_data,
-                    "difficulty": q.get("difficulty"),
-                    "is_generated": True  # Flag to indicate this is a generated question
-                })
-            
-            return questions_for_user
-            
-        except Exception as e:
-            logger.error(f"Error parsing generated questions: {e}")
+    # Check if this is a final_review session with generated quizzes
+    if session.session_type == "final_review":  # type: ignore
+        # Query generated quizzes from database (they have session_id set)
+        quizzes = db.query(Quiz).filter(
+            Quiz.session_id == session_id
+        ).all()
+        
+        if not quizzes:
             raise HTTPException(
-                status_code=500,
-                detail="Error loading generated questions"
+                status_code=404,
+                detail="No questions found for this review session"
             )
+        
+        # Return generated questions without correct answers
+        questions_for_user = []
+        for q in quizzes:
+            question_data = dict(q.question_data) if q.question_data else {} # type: ignore
+            
+            # Remove correct answer from question_data
+            if "correct_answer" in question_data:
+                del question_data["correct_answer"]  # type: ignore
+            if "correct_matches" in question_data:
+                del question_data["correct_matches"]  # type: ignore
+            if "acceptable_answers" in question_data:
+                del question_data["acceptable_answers"]  # type: ignore
+            
+            questions_for_user.append({
+                "quiz_id": q.id,  # Use actual database ID
+                "question": q.question,
+                "question_type": q.question_type,
+                "question_data": question_data,
+                "difficulty": q.difficulty,
+                "is_generated": True  # Flag to indicate this is a generated question
+            })
+        
+        return questions_for_user
     
     # Regular quiz session - get from database
-    query = db.query(Quiz).filter(Quiz.course_id == session.course_id)
+    query = db.query(Quiz).filter(
+        Quiz.course_id == session.course_id,
+        Quiz.session_id == None  # Only permanent course quizzes
+    )
     if session.section_id:  # type: ignore
         query = query.filter(Quiz.section_id == session.section_id)
     
@@ -417,64 +421,7 @@ def submit_quiz_answer(
     if session.status != "in_progress":  # type: ignore
         raise HTTPException(status_code=400, detail="Quiz session is not active")
     
-    # Check if this is a generated quiz
-    if session.session_type == "final_review" and session.generated_questions:  # type: ignore
-        # Handle generated question
-        try:
-            generated_questions = json.loads(session.generated_questions)  # type: ignore
-            quiz_index = answer_data.quiz_id  # quiz_id is actually the index
-            
-            if quiz_index >= len(generated_questions):
-                raise HTTPException(status_code=404, detail="Question not found")
-            
-            quiz_data = generated_questions[quiz_index]
-            
-            # Check if already answered
-            existing_attempt = db.query(QuizAttempt).filter(
-                QuizAttempt.session_id == session_id,
-                QuizAttempt.quiz_id == quiz_index  # Store index as quiz_id
-            ).first()
-            
-            if existing_attempt:
-                raise HTTPException(status_code=400, detail="Question already answered in this session")
-            
-            # Grade the answer using generated question data
-            is_correct = _grade_generated_answer(quiz_data, answer_data.user_answer)
-            
-            # Create attempt record (quiz_id stores the index)
-            attempt = QuizAttempt(
-                session_id=session_id,
-                quiz_id=quiz_index,  # Store index
-                user_id=current_user.id,  # type: ignore
-                user_answer=answer_data.user_answer,
-                is_correct=is_correct,
-                time_spent=answer_data.time_spent
-            )
-            db.add(attempt)
-            
-            # Update session stats
-            if is_correct:
-                session.correct_answers += 1  # type: ignore
-            
-            db.commit()
-            db.refresh(attempt)
-            
-            return QuizAttemptResponse(
-                attempt_id=attempt.id,  # type: ignore
-                quiz_id=quiz_index,
-                is_correct=is_correct,
-                user_answer=answer_data.user_answer,
-                correct_answer=quiz_data.get("question_data", {}),
-                explanation=quiz_data.get("explanation", ""),
-                question=quiz_data.get("question", ""),
-                question_type=quiz_data.get("question_type", "")
-            )
-            
-        except json.JSONDecodeError as e:
-            logger.error(f"Error parsing generated questions: {e}")
-            raise HTTPException(status_code=500, detail="Error loading quiz questions")
-    
-    # Regular quiz (from database)
+    # Get quiz from database (works for both permanent and generated quizzes)
     quiz = db.query(Quiz).filter(Quiz.id == answer_data.quiz_id).first()
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")
@@ -702,46 +649,3 @@ def _grade_answer(quiz: Quiz, user_answer: Dict[str, Any]) -> bool:
     return False
 
 
-def _grade_generated_answer(quiz_data: Dict[str, Any], user_answer: Dict[str, Any]) -> bool:
-    """
-    Grade a generated quiz answer based on question type.
-    Similar to _grade_answer but works with dictionary data instead of Quiz model.
-    """
-    question_type = quiz_data.get("question_type")
-    correct_data = quiz_data.get("question_data", {})
-    
-    if question_type == "multiple_choice":
-        # Compare selected option ID
-        user_selected = user_answer.get("selected_id")
-        correct_answer = correct_data.get("correct_answer")
-        return user_selected == correct_answer
-    
-    elif question_type == "true_false":
-        # Compare boolean value
-        user_bool = user_answer.get("answer")
-        correct_bool = correct_data.get("correct_answer")
-        return user_bool == correct_bool
-    
-    elif question_type == "matching":
-        # Compare matching pairs
-        user_matches = user_answer.get("matches", {})
-        correct_matches = correct_data.get("correct_matches", {})
-        return user_matches == correct_matches
-    
-    elif question_type == "short_answer":
-        # Check against correct answer and acceptable answers
-        user_text = str(user_answer.get("answer", "")).strip().lower()
-        correct_text = str(correct_data.get("correct_answer", "")).strip().lower()
-        
-        if user_text == correct_text:
-            return True
-        
-        # Check acceptable alternatives
-        acceptable_answers = correct_data.get("acceptable_answers", [])
-        for acceptable in acceptable_answers:
-            if user_text == str(acceptable).strip().lower():
-                return True
-        
-        return False
-    
-    return False

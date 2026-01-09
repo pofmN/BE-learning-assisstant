@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.dependencies import get_current_active_user
 from app.db.base import get_db
 from app.models.user import User
-from app.models.course import Course
+from app.models.course import Course, Quiz
 from app.models.quiz_attempt import QuizSession
 from app.models.review_analysis import ReviewQuizAnalysis
 from app.core.agents.review import (
@@ -146,17 +146,36 @@ def generate_review_quiz(
         
         logger.info(f"Generated {len(generated_questions)} new questions for review quiz")
         
-        # Create quiz session with generated questions
+        # Create quiz session first (with generated_questions JSON)
         quiz_session = QuizSession(
             user_id=user_id,
             course_id=course_id,
             section_id=None,  # Final review covers entire course
             session_type="final_review",
-            generated_questions=json.dumps(generated_questions),  # Store generated questions
+            generated_questions=generated_questions,  # No longer storing in JSON
             total_questions=len(generated_questions),
             status="in_progress"
         )
         db.add(quiz_session)
+        db.flush()  # Get session.id without committing
+        
+        # Save generated questions to Quiz table with session_id
+        saved_quiz_ids = []
+        for q_data in generated_questions:
+            quiz = Quiz(
+                course_id=course_id,
+                section_id=None,  # Final review questions not tied to specific section
+                session_id=quiz_session.id,  # Link to session - marks as generated quiz
+                question=q_data.get("question", ""),
+                question_type=q_data.get("question_type", "multiple_choice"),
+                question_data=q_data.get("question_data", {}),
+                explanation=q_data.get("explanation"),
+                difficulty=q_data.get("difficulty")
+            )
+            db.add(quiz)
+            db.flush()
+            saved_quiz_ids.append(quiz.id)
+        
         db.commit()
         db.refresh(quiz_session)
         
