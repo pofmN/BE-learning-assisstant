@@ -52,7 +52,8 @@ class EligibilityChecker:
 
             # Count total quizzes in course
             total_quizzes = self.db.query(Quiz).filter(
-                Quiz.course_id == course_id
+                Quiz.course_id == course_id,
+                Quiz.session_id.is_(None)  # Only count original learning quizzes
             ).count()
 
             if total_quizzes == 0:
@@ -68,12 +69,16 @@ class EligibilityChecker:
                     message="No quizzes available in this course"
                 )
 
-            # Count unique quizzes user has attempted
+            # Count unique quizzes user has attempted (exclude final review sessions)
             attempted_quiz_ids = self.db.query(QuizAttempt.quiz_id).join(
                 QuizSession, QuizSession.id == QuizAttempt.session_id
+            ).join(
+                Quiz, Quiz.id == QuizAttempt.quiz_id
             ).filter(
                 QuizSession.user_id == user_id,
-                QuizSession.course_id == course_id
+                QuizSession.course_id == course_id,
+                QuizSession.session_type != "final_review",  # Exclude final review sessions
+                Quiz.session_id.is_(None)  # Only count attempts on original quizzes
             ).distinct().all()
 
             attempted_count = len(attempted_quiz_ids)
