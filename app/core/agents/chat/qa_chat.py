@@ -255,7 +255,7 @@ class QAChatAgent:
             chunks = self.retriever.retrieve_relevant_chunks(
                 query=user_message,
                 document_ids=document_ids,
-                top_k=5,
+                top_k=8,
                 similarity_threshold=0.1
             )
             
