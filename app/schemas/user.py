@@ -1,10 +1,10 @@
 """
 Pydantic schemas for User model.
 """
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class UserBase(BaseModel):
@@ -57,11 +57,45 @@ class UserPersonalityInDB(BaseModel):
 
     id: int
     user_id: int
-    date_of_birth: Optional[int] = Field(None, description="Date of birth in YYYYMMDD(int) format")
+    date_of_birth: Optional[str] = Field(None, description="Date of birth in ISO format (YYYY-MM-DD)")
     timezone: Optional[str] = Field(None, description="User's timezone")
     about_me: Optional[str] = Field(None, description="About me section")
     school_name: Optional[str] = Field(None, description="Name of the school")
     memories: Optional[str] = Field(None, description="User's memories")
+    
+    @field_validator('date_of_birth', mode='before')
+    @classmethod
+    def validate_date_of_birth(cls, v):
+        """Validate and convert date_of_birth to string format."""
+        if v is None:
+            return None
+        
+        # If it's already a string, validate format
+        if isinstance(v, str):
+            try:
+                # Try parsing as ISO date (YYYY-MM-DD)
+                datetime.fromisoformat(v.replace('Z', '+00:00'))
+                return v
+            except:
+                raise ValueError("date_of_birth must be in YYYY-MM-DD format")
+        
+        # If it's a timestamp (milliseconds)
+        if isinstance(v, int):
+            try:
+                # Convert milliseconds to seconds
+                timestamp_seconds = abs(v) / 1000
+                dt = datetime.fromtimestamp(timestamp_seconds)
+                # Return as ISO string
+                return dt.strftime('%Y-%m-%d')
+            except:
+                raise ValueError("Invalid timestamp for date_of_birth")
+        
+        # If it's a date object
+        if isinstance(v, (datetime, date)):
+            return v.strftime('%Y-%m-%d')
+        
+        raise ValueError("date_of_birth must be a string (YYYY-MM-DD) or timestamp")
+    
     class Config:
         """Pydantic config."""
 

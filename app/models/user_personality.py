@@ -10,7 +10,7 @@ class UserPersonality(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
     
-    date_of_birth = Column(Integer, nullable=True)  # Stored as YYYYMMDD
+    date_of_birth = Column(String, nullable=True)  # Stored as YYYY-MM-DD ISO format
     timezone = Column(String, nullable=True)  # E.g., "America/New_York"
     about_me = Column(String, nullable=True)
     school_name = Column(String, nullable=True)
