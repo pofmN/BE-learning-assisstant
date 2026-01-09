@@ -445,6 +445,36 @@ def move_course_to_folder(
         "folder_id": folder_id
     }
 
+@router.patch("/{course_id}/move-from-folder")
+def move_course_from_folder(
+    course_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+) -> Any:
+    """
+    Remove a course from its folder.
+    
+    Args:
+        course_id: ID of the course to move
+        db: Database session
+        current_user: Currently authenticated user
+    Returns:
+        Updated course
+    """
+    # Only owner can remove course from folder
+    course = require_course_ownership(course_id, current_user, db)
+    
+    # Remove folder association
+    course.folder_id = None  # type: ignore
+    db.commit()
+    db.refresh(course)
+    
+    return {
+        "message": "Course removed from folder",
+        "course_id": course_id,
+        "folder_id": None
+    }
+
 
 @router.post("/{course_id}/modify")
 def modify_course(
