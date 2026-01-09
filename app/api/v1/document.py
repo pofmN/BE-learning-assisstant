@@ -34,7 +34,7 @@ class TaskQueue:
             self.client = tasks_v2.CloudTasksClient()
             self.project = settings.GCS_PROJECT_ID
             self.location = 'asia-southeast1'
-            self.queue = 'document-processing'
+            self.queue = 'process-document-queue'
         
     def enqueue_document_processing(
         self,
