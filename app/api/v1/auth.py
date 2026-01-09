@@ -256,7 +256,7 @@ def logout(current_user: User = Depends(get_current_active_user)) -> Any:
 @router.get("/google/login")
 async def google_login(request: Request) -> Any:
     """
-    Redirect user to Google's OAuth 2.0 authorization page.
+    Redirect user to Google's OAuth 2.0 authorization page (stateless).
 
     Args:
         request: HTTP request
@@ -264,45 +264,62 @@ async def google_login(request: Request) -> Any:
     Returns:
         Redirect response to Google OAuth
     """
-    google = oauth_service.get_google_client()
-    if not google:
+    try:
+        # Generate authorization URL using stateless approach
+        auth_url = oauth_service.generate_google_auth_url()
+        
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=auth_url)
+        
+    except Exception as e:
+        logger.error(f"Error generating Google OAuth URL: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Google OAuth client not configured"
+            detail="Failed to initiate Google OAuth"
         )
-    redirect_uri = settings.GOOGLE_REDIRECT_URI
-    return await google.authorize_redirect(request, redirect_uri)
 
 @router.get("/google/callback", response_model=Token)
-async def google_callback(request: Request, db: Session = Depends(get_db)) -> Any:
+async def google_callback(
+    code: str,
+    state: str,
+    db: Session = Depends(get_db)
+) -> Any:
     """
-    Handle Google OAuth 2.0 callback and authenticate or register user.
+    Handle Google OAuth 2.0 callback and authenticate or register user (stateless).
 
     Args:
-        request: HTTP request
+        code: Authorization code from Google
+        state: State token for CSRF protection
         db: Database session
     Returns:
-        JWT access token with metadata
+        Redirect to frontend with JWT token
     Raises:
         HTTPException: If authentication fails
     """
     try:
-        google = oauth_service.get_google_client()
-        if not google:
+        # Verify state token (CSRF protection)
+        if not oauth_service.verify_state_token(state):
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Google OAuth client not configured"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid state token - possible CSRF attack"
             )
-        token = await google.authorize_access_token(request)
+        
+        # Exchange code for token
+        token = await oauth_service.exchange_code_for_token(code)
+        
+        # Get user info
         user_info = await oauth_service.get_google_user_info(token)
         validated_data = oauth_service.validate_oauth_user_data(user_info)
+        
         email = validated_data["email"]
         oauth_id = validated_data["oauth_id"]
+        
         if not email:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Failed to retrieve email from Google"
             )
+        
         # Check if user exists
         user = db.query(User).filter(
             (User.email == email) |
@@ -316,8 +333,9 @@ async def google_callback(request: Request, db: Session = Depends(get_db)) -> An
                 user.oauth_id = oauth_id # type: ignore
 
             if not user.avatar_url: # type: ignore
-                user.avatar_url = validated_data["avatar_url"] # type: ignore
-            user.last_login = datetime.now() # type: ignore
+                user.avatar_url = validated_data.get("avatar_url") # type: ignore
+            
+            user.last_login_at = datetime.now() # type: ignore
             db.commit()
             db.refresh(user)
             logger.info(f"Existing user '{user.username}' logged in via Google OAuth")
@@ -330,6 +348,7 @@ async def google_callback(request: Request, db: Session = Depends(get_db)) -> An
             while db.query(User).filter(User.username == username).first():
                 username = f"{base_username}{counter}"
                 counter += 1
+            
             user = User(
                 email=email,
                 username=username,
@@ -340,8 +359,7 @@ async def google_callback(request: Request, db: Session = Depends(get_db)) -> An
                 is_active=True,
                 hashed_password=None,
                 role="student",
-                create_at=datetime.now(),
-                last_login=datetime.now()
+                last_login_at=datetime.now()
             )
             db.add(user)
             db.commit()
@@ -365,22 +383,19 @@ async def google_callback(request: Request, db: Session = Depends(get_db)) -> An
             }
         )
 
+        # Redirect to frontend with token
         frontend_redirect_url = f"{settings.FRONTEND_URL}/oauth-success?token={access_token}"
         from fastapi.responses import RedirectResponse
-        return RedirectResponse(frontend_redirect_url)
-    except OAuthError as e:
-        logger.error(f"Google OAuth error: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Google OAuth authentication failed"
-        )
+        return RedirectResponse(url=frontend_redirect_url)
+        
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Unexpected error during Google OAuth callback: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error during Google OAuth authentication"
-        )
-    
+        )    
 
 @router.get("/me", response_model=UserSchema)
 def read_current_user(current_user: User = Depends(get_current_active_user)) -> Any:
